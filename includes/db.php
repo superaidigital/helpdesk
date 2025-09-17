@@ -1,24 +1,27 @@
 <?php
 // includes/db.php
 
-// Database configuration
-define('DB_HOST', 'localhost');
-define('DB_USERNAME', 'root'); // <-- เปลี่ยนเป็น username ของคุณ
-define('DB_PASSWORD', ''); // <-- เปลี่ยนเป็น password ของคุณ
-define('DB_NAME', 'helpdesk_db');
+// เรียกใช้ไฟล์ config จากโฟลเดอร์แม่ (../)
+require_once __DIR__ . '/../config.php';
 
-// Create a database connection
+// Create a database connection using defined constants
 $conn = new mysqli(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME);
 
 // Set character set to utf8mb4
 if (!$conn->set_charset("utf8mb4")) {
-    printf("Error loading character set utf8mb4: %s\n", $conn->error);
-    exit();
+    // In a production environment, you might log this error instead of printing it
+    error_log("Error loading character set utf8mb4: " . $conn->error);
+    // For the user, show a generic error message
+    die("เกิดข้อผิดพลาดในการเชื่อมต่อกับฐานข้อมูล");
 }
 
 // Check the connection
 if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+    // Log the detailed error for developers
+    error_log("Connection failed: " . $conn->connect_error);
+    // Show a generic error to the user
+    die("เกิดข้อผิดพลาดในการเชื่อมต่อกับฐานข้อมูล");
 }
 
 ?>
+

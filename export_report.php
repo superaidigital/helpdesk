@@ -8,8 +8,12 @@ $start_date = $_GET['start_date'] ?? date('Y-m-01');
 $end_date = $_GET['end_date'] ?? date('Y-m-t');
 $user_id_filter = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
 
+// Basic validation to ensure they are in Y-m-d format
+$start_date = date('Y-m-d', strtotime($start_date));
+$end_date = date('Y-m-d', strtotime($end_date));
+
 // สร้างชื่อไฟล์
-$filename_user = "All_Staff"; 
+$filename_user = "All_Staff";
 if ($user_id_filter !== null) {
     // **Security Check:** IT users can only export their own data.
     if ($_SESSION['role'] === 'it') {
@@ -25,7 +29,7 @@ if ($user_id_filter !== null) {
 $filename = "Helpdesk_Report_{$filename_user}_from_{$start_date}_to_{$end_date}.csv";
 
 
-// --- สร้าง SQL Query ---
+// --- สร้าง SQL Query โดยใช้ Prepared Statements ---
 $sql = "SELECT i.id, i.title, i.category, i.status, i.reporter_name, u.fullname as assigned_to, i.created_at, i.completed_at 
         FROM issues i 
         LEFT JOIN users u ON i.assigned_to = u.id 
@@ -66,10 +70,14 @@ if ($result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
         $duration = '-';
         if ($row['completed_at'] && $row['created_at']) {
-            $start = new DateTime($row['created_at']);
-            $end = new DateTime($row['completed_at']);
-            $diff = $start->diff($end);
-            $duration = ($diff->days * 24 * 60) + ($diff->h * 60) + $diff->i;
+            try {
+                $start = new DateTime($row['created_at']);
+                $end = new DateTime($row['completed_at']);
+                $diff = $start->diff($end);
+                $duration = ($diff->days * 24 * 60) + ($diff->h * 60) + $diff->i;
+            } catch (Exception $e) {
+                $duration = '-'; // Handle potential DateTime errors
+            }
         }
         
         // แปลงสถานะเป็นภาษาไทย
@@ -77,7 +85,8 @@ if ($result->num_rows > 0) {
             'pending' => 'รอตรวจสอบ',
             'in_progress' => 'กำลังดำเนินการ',
             'done' => 'เสร็จสิ้น',
-            'cannot_resolve' => 'แก้ไขไม่ได้'
+            'cannot_resolve' => 'แก้ไขไม่ได้',
+            'awaiting_parts' => 'รอสั่งซื้ออุปกรณ์'
         ];
 
         fputcsv($output, [
@@ -99,4 +108,3 @@ $stmt->close();
 $conn->close();
 exit();
 ?>
-

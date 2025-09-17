@@ -38,11 +38,11 @@ $issue_files = getIssueFiles($issue_id, $conn);
 $comments = getIssueComments($issue_id, $conn);
 $other_it_staff_result = $conn->query("SELECT id, fullname FROM users WHERE role = 'it' AND id != " . (int)($issue['assigned_to'] ?? 0));
 
-// Fetch checklist data
+// Fetch checklist data from the database
 $checklist_items_db = getIssueChecklistItems($issue_id, $conn);
 
-// Get the correct checklist based on the issue's category
-$default_checklist = get_checklist_by_category($issue['category']);
+// Get the correct checklist template based on the issue's category
+$checklist_template = get_checklist_by_category($issue['category']);
 
 // --- Display Maps ---
 $status_text_map = [ 
@@ -59,7 +59,7 @@ $status_color_map = [
     'cannot_resolve' => 'bg-red-100 text-red-800',
     'awaiting_parts' => 'bg-purple-100 text-purple-800'
 ];
-$category_icon_map = [ 'ฮาร์ดแวร์' => 'fa-desktop', 'ซอฟต์แวร์' => 'fa-window-maximize', 'ระบบเครือข่าย' => 'fa-wifi', 'ระบบสารบรรณ/ERP' => 'fa-file-invoice', 'อีเมล' => 'fa-envelope-open-text', 'อื่นๆ' => 'fa-question-circle' ];
+$category_icon_map = [ 'ฮาร์ดแวร์' => 'fa-desktop', 'ซอฟต์แวร์' => 'fa-window-maximize', 'ระบบเครือข่าย' => 'fa-wifi', 'ออกแบบและพัฒนาระบบ' => 'fa-code', 'อีเมล' => 'fa-envelope-open-text', 'อื่นๆ' => 'fa-question-circle' ];
 $current_category_icon = $category_icon_map[$issue['category']] ?? 'fa-question-circle';
 
 // Determine reporter's division (if available)
@@ -70,12 +70,18 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
     <div class="lg:col-span-2 space-y-6">
         <!-- Issue Details Card -->
         <div class="bg-white rounded-lg shadow-md p-6">
-             <div class="flex items-center gap-4">
-                <i class="fa-solid <?php echo $current_category_icon; ?> text-3xl text-indigo-500"></i>
-                <div>
-                    <h2 class="text-xl font-bold text-gray-800"><?php echo htmlspecialchars($issue['title']); ?></h2>
-                    <p class="text-sm text-gray-500">แจ้งเมื่อ: <?php echo formatDate($issue['created_at']); ?></p>
+             <div class="flex justify-between items-start">
+                <div class="flex items-center gap-4">
+                    <i class="fa-solid <?php echo $current_category_icon; ?> text-3xl text-indigo-500"></i>
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800"><?php echo htmlspecialchars($issue['title']); ?></h2>
+                        <p class="text-sm text-gray-500">แจ้งเมื่อ: <?php echo formatDate($issue['created_at']); ?></p>
+                    </div>
                 </div>
+                <!-- Print Work Order Button -->
+                <a href="work_order.php?id=<?php echo $issue_id; ?>" target="_blank" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm font-medium whitespace-nowrap">
+                    <i class="fa-solid fa-print mr-2"></i>พิมพ์ใบงาน
+                </a>
             </div>
             <p class="mt-4 text-gray-600 border-t pt-4"><?php echo nl2br(htmlspecialchars($issue['description'])); ?></p>
             
@@ -101,8 +107,6 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
         <div class="bg-white p-6 rounded-lg shadow-md">
            <h3 class="font-semibold mb-4 text-gray-800 text-lg border-b pb-3">ดำเนินการ</h3>
            
-           <?php display_flash_message(); ?>
-
             <form action="issue_action.php" method="POST" enctype="multipart/form-data">
                 <?php echo generate_csrf_token(); ?>
                 <input type="hidden" name="issue_id" value="<?php echo $issue['id']; ?>">
@@ -138,7 +142,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                         <label class="text-sm font-medium">แนบไฟล์ประกอบ</label>
                         <input type="file" name="comment_files[]" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mt-1"/>
                     </div>
-                    <div x-show="selectedStatus !== 'forward'">
+                     <div x-show="selectedStatus !== 'forward'">
                         <label class="text-sm font-medium">แนบลิงก์</label>
                         <input type="url" name="attachment_link" placeholder="https://example.com" class="w-full mt-1 border-gray-300 rounded-md text-sm">
                     </div>
@@ -155,22 +159,25 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
         </div>
 
         <!-- Checklist Card (Show ONLY to assigned IT) -->
-        <div class="bg-white rounded-lg shadow-md p-6" x-data='checklistHandler(<?php echo $issue_id; ?>, <?php echo htmlspecialchars(json_encode($checklist_items_db), ENT_QUOTES, 'UTF-8'); ?>)'>
-            <h3 class="font-semibold text-lg mb-4 text-gray-800 border-b pb-3">รายการตรวจสอบ (Checklist)</h3>
+        <div class="bg-white rounded-lg shadow-md p-6" x-data='checklistHandler(<?php echo $issue_id; ?>, <?php echo json_encode($checklist_items_db); ?>)'>
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 class="font-semibold text-lg text-gray-800">รายการตรวจสอบ (Checklist)</h3>
+                <span x-show="status" :class="{ 'text-green-600': isSaved, 'text-red-600': !isSaved }" class="text-xs transition-opacity" x-text="status"></span>
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
-                <?php foreach($default_checklist as $item): ?>
+                <?php foreach($checklist_template as $item): ?>
                 <div class="flex items-start space-x-3">
                     <input type="checkbox" 
-                           :checked="items['<?php echo $item; ?>'] && items['<?php echo $item; ?>'].checked"
-                           @change="toggleCheck('<?php echo $item; ?>')"
+                           :checked="items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'] && items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'].checked"
+                           @change="toggleCheck('<?php echo htmlspecialchars($item, ENT_QUOTES); ?>')"
                            class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mt-1 shrink-0">
                     <div class="flex-grow">
-                        <label class="text-gray-700 cursor-pointer" :class="{'line-through text-gray-400': items['<?php echo $item; ?>'] && items['<?php echo $item; ?>'].checked}"><?php echo $item; ?></label>
+                        <label class="text-gray-700 cursor-pointer" :class="{'line-through text-gray-400': items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'] && items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'].checked}"><?php echo htmlspecialchars($item); ?></label>
                         <?php if ($item === 'อื่นๆ'): ?>
-                            <div x-show="items['<?php echo $item; ?>'] && items['<?php echo $item; ?>'].checked" x-transition @click.stop>
+                            <div x-show="items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'] && items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'].checked" x-transition @click.stop>
                                 <input type="text" 
-                                       @input.debounce.500ms="updateValue('อื่นๆ', $event.target.value)"
-                                       :value="items['<?php echo $item; ?>'] ? items['<?php echo $item; ?>'].value : ''"
+                                       @input="updateValue('<?php echo htmlspecialchars($item, ENT_QUOTES); ?>', $event.target.value)"
+                                       :value="items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'] ? items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'].value : ''"
                                        placeholder="ระบุรายละเอียด..."
                                        class="text-sm w-full mt-1 border-gray-200 rounded-md shadow-sm">
                             </div>
@@ -179,7 +186,12 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                 </div>
                 <?php endforeach; ?>
             </div>
-            <p x-show="errorMessage" x-text="errorMessage" class="text-xs text-red-500 mt-2"></p>
+            <div class="flex justify-end mt-4">
+                <button @click="saveChecklist()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 text-sm">
+                    <i class="fa-solid fa-save mr-2"></i>บันทึก Checklist
+                </button>
+            </div>
+            <p x-show="errorMessage" x-text="errorMessage" class="text-xs text-red-500 mt-2 text-right"></p>
         </div>
         <?php endif; ?>
 
@@ -197,7 +209,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                             <p><strong><?php echo htmlspecialchars($comment['fullname']); ?></strong> 
                                <span class="text-xs text-gray-500"><?php echo formatDate($comment['created_at']); ?></span>
                             </p>
-                            <div class="text-gray-700 bg-gray-100 p-3 rounded-lg mt-1">
+                            <div class="text-gray-700 bg-gray-100 p-3 rounded-lg mt-1 w-full">
                                 <p><?php echo nl2br(htmlspecialchars($comment['comment_text'])); ?></p>
                                 
                                 <?php if (!empty($comment['files'])): ?>
@@ -216,7 +228,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                                 <?php if (!empty($comment['attachment_link'])): ?>
                                 <div class="mt-2 pt-2 border-t border-gray-200">
                                     <p class="text-xs font-semibold mb-1">ลิงก์:</p>
-                                    <a href="<?php echo htmlspecialchars($comment['attachment_link']); ?>" target="_blank" class="text-xs text-indigo-600 hover:underline flex items-center">
+                                    <a href="<?php echo htmlspecialchars($comment['attachment_link']); ?>" target="_blank" class="text-xs text-indigo-600 hover:underline flex items-center break-all">
                                         <i class="fa-solid fa-link mr-1"></i><?php echo htmlspecialchars($comment['attachment_link']); ?>
                                     </a>
                                 </div>
@@ -260,7 +272,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
             </div>
             
             <!-- Edit Mode -->
-            <form x-show="isEditingReporter" x-transition action="issue_action.php" method="POST" class="space-y-4 bg-white rounded-lg shadow-md p-6">
+            <form x-show="isEditingReporter" x-transition action="issue_action.php" method="POST" class="space-y-4">
                 <?php echo generate_csrf_token(); ?>
                 <input type="hidden" name="issue_id" value="<?php echo $issue_id; ?>">
                 <input type="hidden" name="action" value="edit_reporter">
@@ -292,8 +304,6 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                 </div>
             </form>
         </div>
-        
-        <!-- ... (Work Order, Signature, and Satisfaction Cards remain the same) ... -->
     </div>
 </div>
 
@@ -303,32 +313,48 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
             issueId: issueId,
             items: initialItems,
             errorMessage: '',
+            status: '',
+            isSaved: false,
+            timeout: null,
             
             init() {
-                const defaultKeys = <?php echo json_encode($default_checklist); ?>;
-                defaultKeys.forEach(key => {
-                    if (!this.items[key]) {
+                const templateKeys = <?php echo json_encode($checklist_template); ?>;
+                templateKeys.forEach(key => {
+                    // Use hasOwnProperty to prevent iterating over prototype properties
+                    if (!this.items.hasOwnProperty(key)) {
                         this.items[key] = { checked: false, value: '' };
                     }
                 });
             },
+
+            showStatus(message, isSuccess, duration = 3000) {
+                this.status = message;
+                this.isSaved = isSuccess;
+                clearTimeout(this.timeout);
+                this.timeout = setTimeout(() => {
+                    this.status = '';
+                }, duration);
+            },
+
             toggleCheck(itemDescription) {
                 this.items[itemDescription].checked = !this.items[itemDescription].checked;
-                this.updateChecklist(itemDescription, this.items[itemDescription].checked, null);
             },
+            
             updateValue(itemDescription, value) {
                 this.items[itemDescription].value = value;
-                this.updateChecklist(itemDescription, null, value);
             },
-            updateChecklist(itemDescription, isChecked, itemValue) {
+
+            saveChecklist() {
+                this.status = 'กำลังบันทึก...';
+                this.isSaved = false;
+                this.errorMessage = '';
+                
                 fetch('issue_checklist_action.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({
                         issue_id: this.issueId,
-                        item_description: itemDescription,
-                        is_checked: isChecked,
-                        item_value: itemValue
+                        items: this.items // Send the whole items object
                     })
                 })
                 .then(response => {
@@ -336,22 +362,21 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                     return response.json();
                 })
                 .then(data => {
-                    if (!data.success) {
-                        this.errorMessage = 'เกิดข้อผิดพลาดในการบันทึก: ' + (data.message || 'ไม่ทราบสาเหตุ');
-                        if (isChecked !== null) this.items[itemDescription].checked = !isChecked;
+                    if (data.success) {
+                        this.showStatus('บันทึก Checklist เรียบร้อยแล้ว', true);
                     } else {
-                        this.errorMessage = '';
+                        this.showStatus('เกิดข้อผิดพลาดในการบันทึก', false);
+                        this.errorMessage = 'ข้อผิดพลาด: ' + (data.message || 'ไม่ทราบสาเหตุ');
                     }
                 })
                 .catch(error => {
+                    this.showStatus('เกิดข้อผิดพลาดในการเชื่อมต่อ', false);
                     this.errorMessage = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้';
-                    if (isChecked !== null) this.items[itemDescription].checked = !isChecked;
                 });
             }
         }));
     });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <?php 
 $conn->close();
 require_once 'includes/footer.php'; 

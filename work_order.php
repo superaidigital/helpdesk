@@ -33,12 +33,11 @@ if (!$issue) {
 // Fetch latest comment and checklist data
 $latest_comment = getLatestITComment($issue['id'], $issue['assigned_to'], $conn);
 $checklist_data = getIssueChecklistItems($issue_id, $conn);
-$default_checklist_items = [
-    'ตรวจสอบสายไฟ/สายสัญญาณ', 'ทดสอบการพิมพ์/การสแกน', 'ตรวจสอบการเชื่อมต่อเครือข่าย', 
-    'อัปเดตไดรเวอร์/ซอฟต์แวร์', 'สแกนไวรัส/มัลแวร์', 'ทำความสะอาดอุปกรณ์เบื้องต้น', 'อื่นๆ'
-];
+// [IMPROVEMENT] Get the correct checklist based on the issue's category
+$checklist_items_for_display = get_checklist_by_category($issue['category']);
 
-// Fetch all active categories from the database for the checklist
+
+// Fetch all active categories from the database for the category selection section
 $all_categories_result = $conn->query("SELECT name FROM categories WHERE is_active = 1 ORDER BY id ASC");
 $all_categories = [];
 if ($all_categories_result) {
@@ -50,8 +49,16 @@ if ($all_categories_result) {
 
 $thai_date = formatDate($issue['created_at']);
 list($date_part, $time_part) = explode(',', $thai_date);
-$time_part = str_replace('น.', '', $time_part);
-$completed_time_str = $issue['completed_at'] ? formatDate($issue['completed_at']) : '-';
+$time_part_cleaned = str_replace('น.', '', $time_part);
+
+// Get completed time, if available
+$completed_time_str = '-';
+if ($issue['completed_at']) {
+    $completed_thai_date = formatDate($issue['completed_at']);
+    list(, $completed_time_part) = explode(',', $completed_thai_date);
+    $completed_time_str = trim(str_replace('น.', '', $completed_time_part));
+}
+
 
 // Determine reporter's division
 $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : ($issue['division'] ?? '');
@@ -115,7 +122,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
                 <div class="flex space-x-4">
                     <div class="field"><span class="field-label">เลขที่:</span> <span class="field-value"><?php echo $issue['id']; ?></span></div>
                     <div class="field"><span class="field-label">วันที่:</span> <span class="field-value"><?php echo trim($date_part); ?></span></div>
-                    <div class="field"><span class="field-label">เวลา:</span> <span class="field-value"><?php echo trim($time_part); ?></span></div>
+                    <div class="field"><span class="field-label">เวลา:</span> <span class="field-value"><?php echo trim($time_part_cleaned); ?></span></div>
                 </div>
             </div>
             <p class="form-subtitle">บันทึกการแจ้งปัญหา/ขอคำปรึกษา ด้าน IT</p>
@@ -152,7 +159,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
             <p class="form-title">ส่วนที่ ๒ สำหรับเจ้าหน้าที่</p>
             <p class="form-subtitle">บันทึกการตรวจสอบและแก้ไข</p>
             <div class="grid grid-cols-2 gap-x-6 mt-2">
-                <div class="field"><span class="field-label">เวลาเริ่มดำเนินการ:</span> <span class="field-value"><?php echo trim($time_part); ?></span></div>
+                <div class="field"><span class="field-label">เวลาเริ่มดำเนินการ:</span> <span class="field-value"><?php echo trim($time_part_cleaned); ?></span></div>
                 <div class="field"><span class="field-label">เวลาแล้วเสร็จ:</span> <span class="field-value"><?php echo $completed_time_str; ?></span></div>
             </div>
             
@@ -160,13 +167,13 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
             <div class="mt-4">
                 <p class="font-bold">รายการตรวจสอบและแก้ไข:</p>
                 <div class="grid grid-cols-2 gap-x-4 text-sm mt-1">
-                    <?php foreach($default_checklist_items as $item): 
+                    <?php foreach($checklist_items_for_display as $item): 
                         $is_checked = isset($checklist_data[$item]) && $checklist_data[$item]['checked'];
                         $item_value = isset($checklist_data[$item]) ? $checklist_data[$item]['value'] : '';
                     ?>
                     <div>
                         <span class="checkbox"><?php echo $is_checked ? '☑' : '☐'; ?></span>
-                        <span><?php echo $item; ?></span>
+                        <span><?php echo htmlspecialchars($item); ?></span>
                         <?php if ($item === 'อื่นๆ' && $is_checked && !empty($item_value)): ?>
                             <span class="ml-2 text-indigo-600">(<?php echo htmlspecialchars($item_value); ?>)</span>
                         <?php endif; ?>
@@ -181,8 +188,8 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
                     <span class="field-label">รายละเอียดการแก้ไขเพิ่มเติม:</span> 
                     <div class="field-value min-h-[4rem]"><?php echo nl2br(htmlspecialchars($latest_comment ?? '')); ?></div>
                 </div>
-                <p><span class="checkbox">☐</span> ศูนย์เทคโนฯ ขอให้หน่วยงาน สั่งซื้ออุปกรณ์เพื่อใช้ในการซ่อม</p>
-                <p><span class="checkbox">☐</span> ไม่สามารถดำเนินการเองได้ / ให้กองพัสดุและทรัพย์สิน ดำเนินการส่งซ่อม</p>
+                <p><span class="checkbox"><?php echo $issue['status'] === 'awaiting_parts' ? '☑' : '☐'; ?></span> ขอให้หน่วยงาน สั่งซื้ออุปกรณ์เพื่อใช้ในการซ่อม</p>
+                <p><span class="checkbox"><?php echo $issue['status'] === 'cannot_resolve' ? '☑' : '☐'; ?></span> ไม่สามารถดำเนินการเองได้ / ให้ดำเนินการส่งซ่อม</p>
             </div>
             <div class="mt-6 flex justify-end">
                 <div class="w-2/5 text-center">
@@ -208,7 +215,11 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
              <div class="field items-start mt-2"><span class="field-label">ข้อเสนอแนะ:</span><div class="field-value min-h-[2rem]"></div></div>
             <div class="grid grid-cols-2 gap-x-8 mt-10">
                  <div class="text-center">
-                    <p>ลงชื่อ............................................</p>
+                    <?php if (!empty($issue['signature_image'])): ?>
+                        <img src="<?php echo htmlspecialchars($issue['signature_image']); ?>" alt="Signature" class="h-16 mx-auto">
+                    <?php else: ?>
+                        <p>ลงชื่อ............................................</p>
+                    <?php endif; ?>
                     <p class="mt-1">(<?php echo htmlspecialchars($issue['reporter_name']); ?>)</p>
                     <p class="text-sm">ผู้รับบริการ</p>
                 </div>
@@ -222,4 +233,3 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
     </div>
 </body>
 </html>
-
