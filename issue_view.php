@@ -38,11 +38,13 @@ $issue_files = getIssueFiles($issue_id, $conn);
 $comments = getIssueComments($issue_id, $conn);
 $other_it_staff_result = $conn->query("SELECT id, fullname FROM users WHERE role = 'it' AND id != " . (int)($issue['assigned_to'] ?? 0));
 
-// Fetch checklist data from the database
+// Fetch checklist data
 $checklist_items_db = getIssueChecklistItems($issue_id, $conn);
 
-// Get the correct checklist template based on the issue's category
-$checklist_template = get_checklist_by_category($issue['category']);
+// Get the correct checklist based on the issue's category
+$default_checklist = get_checklist_by_category($issue['category']);
+$json_checklist_items_db = json_encode($checklist_items_db);
+
 
 // --- Display Maps ---
 $status_text_map = [ 
@@ -59,7 +61,7 @@ $status_color_map = [
     'cannot_resolve' => 'bg-red-100 text-red-800',
     'awaiting_parts' => 'bg-purple-100 text-purple-800'
 ];
-$category_icon_map = [ 'ฮาร์ดแวร์' => 'fa-desktop', 'ซอฟต์แวร์' => 'fa-window-maximize', 'ระบบเครือข่าย' => 'fa-wifi', 'ออกแบบและพัฒนาระบบ' => 'fa-code', 'อีเมล' => 'fa-envelope-open-text', 'อื่นๆ' => 'fa-question-circle' ];
+$category_icon_map = [ 'ฮาร์ดแวร์' => 'fa-desktop', 'ซอฟต์แวร์' => 'fa-window-maximize', 'ระบบเครือข่าย' => 'fa-wifi', 'ระบบสารบรรณ/ERP' => 'fa-file-invoice', 'อีเมล' => 'fa-envelope-open-text', 'อื่นๆ' => 'fa-question-circle' ];
 $current_category_icon = $category_icon_map[$issue['category']] ?? 'fa-question-circle';
 
 // Determine reporter's division (if available)
@@ -78,10 +80,11 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                         <p class="text-sm text-gray-500">แจ้งเมื่อ: <?php echo formatDate($issue['created_at']); ?></p>
                     </div>
                 </div>
-                <!-- Print Work Order Button -->
-                <a href="work_order.php?id=<?php echo $issue_id; ?>" target="_blank" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm font-medium whitespace-nowrap">
+                <?php if (in_array($_SESSION['role'], ['it', 'admin'])): ?>
+                <a href="work_order.php?id=<?php echo $issue['id']; ?>" target="_blank" class="flex-shrink-0 ml-4 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-md hover:bg-indigo-700">
                     <i class="fa-solid fa-print mr-2"></i>พิมพ์ใบงาน
                 </a>
+                <?php endif; ?>
             </div>
             <p class="mt-4 text-gray-600 border-t pt-4"><?php echo nl2br(htmlspecialchars($issue['description'])); ?></p>
             
@@ -107,6 +110,8 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
         <div class="bg-white p-6 rounded-lg shadow-md">
            <h3 class="font-semibold mb-4 text-gray-800 text-lg border-b pb-3">ดำเนินการ</h3>
            
+           <?php display_flash_message(); ?>
+
             <form action="issue_action.php" method="POST" enctype="multipart/form-data">
                 <?php echo generate_csrf_token(); ?>
                 <input type="hidden" name="issue_id" value="<?php echo $issue['id']; ?>">
@@ -142,7 +147,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                         <label class="text-sm font-medium">แนบไฟล์ประกอบ</label>
                         <input type="file" name="comment_files[]" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mt-1"/>
                     </div>
-                     <div x-show="selectedStatus !== 'forward'">
+                    <div x-show="selectedStatus !== 'forward'">
                         <label class="text-sm font-medium">แนบลิงก์</label>
                         <input type="url" name="attachment_link" placeholder="https://example.com" class="w-full mt-1 border-gray-300 rounded-md text-sm">
                     </div>
@@ -159,25 +164,23 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
         </div>
 
         <!-- Checklist Card (Show ONLY to assigned IT) -->
-        <div class="bg-white rounded-lg shadow-md p-6" x-data='checklistHandler(<?php echo $issue_id; ?>, <?php echo json_encode($checklist_items_db); ?>)'>
+        <div class="bg-white rounded-lg shadow-md p-6" x-data="checklistHandler(<?php echo $issue['id']; ?>, <?php echo htmlspecialchars($json_checklist_items_db, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401); ?>)">
             <div class="flex justify-between items-center mb-4 border-b pb-3">
-                <h3 class="font-semibold text-lg text-gray-800">รายการตรวจสอบ (Checklist)</h3>
-                <span x-show="status" :class="{ 'text-green-600': isSaved, 'text-red-600': !isSaved }" class="text-xs transition-opacity" x-text="status"></span>
+                 <h3 class="font-semibold text-lg text-gray-800">รายการตรวจสอบ (Checklist)</h3>
+                 <span x-show="saveStatus.message" :class="{ 'text-green-600': saveStatus.success, 'text-red-600': !saveStatus.success }" class="text-sm mr-4" x-text="saveStatus.message" x-transition></span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
-                <?php foreach($checklist_template as $item): ?>
+                <?php foreach($default_checklist as $item): ?>
                 <div class="flex items-start space-x-3">
                     <input type="checkbox" 
-                           :checked="items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'] && items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'].checked"
-                           @change="toggleCheck('<?php echo htmlspecialchars($item, ENT_QUOTES); ?>')"
+                           x-model="items['<?php echo $item; ?>'].checked"
                            class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mt-1 shrink-0">
                     <div class="flex-grow">
-                        <label class="text-gray-700 cursor-pointer" :class="{'line-through text-gray-400': items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'] && items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'].checked}"><?php echo htmlspecialchars($item); ?></label>
+                        <label class="text-gray-700 cursor-pointer" :class="{'line-through text-gray-400': items['<?php echo $item; ?>'] && items['<?php echo $item; ?>'].checked}"><?php echo $item; ?></label>
                         <?php if ($item === 'อื่นๆ'): ?>
-                            <div x-show="items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'] && items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'].checked" x-transition @click.stop>
+                            <div x-show="items['<?php echo $item; ?>'] && items['<?php echo $item; ?>'].checked" x-transition>
                                 <input type="text" 
-                                       @input="updateValue('<?php echo htmlspecialchars($item, ENT_QUOTES); ?>', $event.target.value)"
-                                       :value="items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'] ? items['<?php echo htmlspecialchars($item, ENT_QUOTES); ?>'].value : ''"
+                                       x-model="items['<?php echo $item; ?>'].value"
                                        placeholder="ระบุรายละเอียด..."
                                        class="text-sm w-full mt-1 border-gray-200 rounded-md shadow-sm">
                             </div>
@@ -186,12 +189,12 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                 </div>
                 <?php endforeach; ?>
             </div>
-            <div class="flex justify-end mt-4">
-                <button @click="saveChecklist()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 text-sm">
-                    <i class="fa-solid fa-save mr-2"></i>บันทึก Checklist
+             <div class="flex justify-end items-center mt-6 pt-4 border-t">
+                 <button @click="saveAllChanges" class="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-md hover:bg-indigo-700 disabled:bg-gray-400" :disabled="isSaving">
+                    <span x-show="!isSaving"><i class="fa-solid fa-save mr-2"></i>บันทึก Checklist</span>
+                    <span x-show="isSaving" style="display: none;"><i class="fa-solid fa-spinner fa-spin mr-2"></i>กำลังบันทึก...</span>
                 </button>
             </div>
-            <p x-show="errorMessage" x-text="errorMessage" class="text-xs text-red-500 mt-2 text-right"></p>
         </div>
         <?php endif; ?>
 
@@ -209,7 +212,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                             <p><strong><?php echo htmlspecialchars($comment['fullname']); ?></strong> 
                                <span class="text-xs text-gray-500"><?php echo formatDate($comment['created_at']); ?></span>
                             </p>
-                            <div class="text-gray-700 bg-gray-100 p-3 rounded-lg mt-1 w-full">
+                            <div class="text-gray-700 bg-gray-100 p-3 rounded-lg mt-1">
                                 <p><?php echo nl2br(htmlspecialchars($comment['comment_text'])); ?></p>
                                 
                                 <?php if (!empty($comment['files'])): ?>
@@ -228,7 +231,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                                 <?php if (!empty($comment['attachment_link'])): ?>
                                 <div class="mt-2 pt-2 border-t border-gray-200">
                                     <p class="text-xs font-semibold mb-1">ลิงก์:</p>
-                                    <a href="<?php echo htmlspecialchars($comment['attachment_link']); ?>" target="_blank" class="text-xs text-indigo-600 hover:underline flex items-center break-all">
+                                    <a href="<?php echo htmlspecialchars($comment['attachment_link']); ?>" target="_blank" class="text-xs text-indigo-600 hover:underline flex items-center">
                                         <i class="fa-solid fa-link mr-1"></i><?php echo htmlspecialchars($comment['attachment_link']); ?>
                                     </a>
                                 </div>
@@ -272,7 +275,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
             </div>
             
             <!-- Edit Mode -->
-            <form x-show="isEditingReporter" x-transition action="issue_action.php" method="POST" class="space-y-4">
+            <form x-show="isEditingReporter" x-transition action="issue_action.php" method="POST" class="space-y-4 bg-white rounded-lg shadow-md p-6">
                 <?php echo generate_csrf_token(); ?>
                 <input type="hidden" name="issue_id" value="<?php echo $issue_id; ?>">
                 <input type="hidden" name="action" value="edit_reporter">
@@ -304,81 +307,157 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                 </div>
             </form>
         </div>
+        
+        <!-- Closure & Satisfaction Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="font-semibold text-lg text-gray-800 mb-4">การยืนยันและประเมินผล</h3>
+            <?php if ($issue['status'] === 'done' && is_null($issue['signature_image']) && $_SESSION['user_id'] == $issue['user_id']): ?>
+                <!-- Form for user to sign and rate -->
+                <form action="track_issue_action.php" method="POST" class="space-y-4" x-data="{ satisfaction: null }">
+                    <?php echo generate_csrf_token(); ?>
+                    <input type="hidden" name="issue_id" value="<?php echo $issue_id; ?>">
+                    <input type="hidden" name="signature_data" id="signature_data">
+                    <input type="hidden" name="source" value="issue_view">
+
+                    <div>
+                        <label class="font-semibold text-gray-800 mb-2 block">ลงลายมือชื่อเพื่อปิดงาน</label>
+                        <div class="border rounded-md">
+                            <canvas id="signature-pad" class="w-full h-40"></canvas>
+                        </div>
+                        <div class="text-center mt-2">
+                            <button type="button" id="clear-signature" class="text-sm text-gray-500 hover:text-red-600">ล้างลายเซ็น</button>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <label class="font-semibold text-gray-800 block">ประเมินความพึงพอใจ</label>
+                        <div class="flex space-x-4 mt-2 text-3xl justify-center">
+                            <label class="cursor-pointer"><input type="radio" name="satisfaction_rating" value="5" class="sr-only" @change="satisfaction = 5" required><i class="fa-solid fa-face-laugh-beam transition-transform" :class="{'text-green-500 scale-125': satisfaction === 5, 'text-gray-300 hover:text-green-400': satisfaction !== 5}"></i></label>
+                            <label class="cursor-pointer"><input type="radio" name="satisfaction_rating" value="4" class="sr-only" @change="satisfaction = 4"><i class="fa-solid fa-face-smile transition-transform" :class="{'text-lime-500 scale-125': satisfaction === 4, 'text-gray-300 hover:text-lime-400': satisfaction !== 4}"></i></label>
+                            <label class="cursor-pointer"><input type="radio" name="satisfaction_rating" value="3" class="sr-only" @change="satisfaction = 3"><i class="fa-solid fa-face-meh transition-transform" :class="{'text-yellow-500 scale-125': satisfaction === 3, 'text-gray-300 hover:text-yellow-400': satisfaction !== 3}"></i></label>
+                            <label class="cursor-pointer"><input type="radio" name="satisfaction_rating" value="2" class="sr-only" @change="satisfaction = 2"><i class="fa-solid fa-face-frown transition-transform" :class="{'text-orange-500 scale-125': satisfaction === 2, 'text-gray-300 hover:text-orange-400': satisfaction !== 2}"></i></label>
+                            <label class="cursor-pointer"><input type="radio" name="satisfaction_rating" value="1" class="sr-only" @change="satisfaction = 1"><i class="fa-solid fa-face-sad-tear transition-transform" :class="{'text-red-500 scale-125': satisfaction === 1, 'text-gray-300 hover:text-red-400': satisfaction !== 1}"></i></label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" name="submit_close_job" class="w-full px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 text-lg">
+                        <i class="fa-solid fa-check-double mr-2"></i>ยืนยันการปิดงาน
+                    </button>
+                </form>
+             <?php elseif (!is_null($issue['signature_image'])): ?>
+                <!-- Display saved signature and rating -->
+                 <div class="space-y-4">
+                     <div>
+                         <h4 class="font-semibold text-gray-800">ลายมือชื่อผู้รับบริการ</h4>
+                         <div class="mt-2 p-2 border rounded-md bg-gray-50 flex justify-center">
+                             <img src="<?php echo htmlspecialchars($issue['signature_image']); ?>" alt="ลายมือชื่อ" class="max-h-20">
+                         </div>
+                     </div>
+                     <?php if (!is_null($issue['satisfaction_rating'])): ?>
+                     <div>
+                         <h4 class="font-semibold text-gray-800">คะแนนความพึงพอใจ</h4>
+                         <p class="text-lg font-bold text-amber-500"><?php echo str_repeat('★', $issue['satisfaction_rating']) . str_repeat('☆', 5 - $issue['satisfaction_rating']); ?> <span class="text-sm text-gray-600">(<?php echo $issue['satisfaction_rating']; ?>/5)</span></p>
+                     </div>
+                     <?php endif; ?>
+                 </div>
+            <?php else: ?>
+                 <p class="text-sm text-gray-500 text-center">
+                    <?php if ($issue['status'] === 'done'): ?>
+                        <i class="fa-solid fa-hourglass-half mr-2"></i> รอผู้แจ้ง (<?php echo htmlspecialchars($issue['reporter_name']); ?>) ปิดงานและประเมินผล
+                    <?php else: ?>
+                        <i class="fa-solid fa-info-circle mr-2"></i> จะสามารถปิดงานและประเมินผลได้เมื่อสถานะเป็น "เสร็จสิ้น"
+                    <?php endif; ?>
+                 </p>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 
 <script>
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('checklistHandler', (issueId, initialItems) => ({
+    function checklistHandler(issueId, initialItems) {
+        return {
             issueId: issueId,
-            items: initialItems,
-            errorMessage: '',
-            status: '',
-            isSaved: false,
-            timeout: null,
+            items: {},
+            isSaving: false,
+            saveStatus: { success: false, message: '' },
             
             init() {
-                const templateKeys = <?php echo json_encode($checklist_template); ?>;
-                templateKeys.forEach(key => {
-                    // Use hasOwnProperty to prevent iterating over prototype properties
-                    if (!this.items.hasOwnProperty(key)) {
-                        this.items[key] = { checked: false, value: '' };
-                    }
+                const defaultKeys = <?php echo json_encode($default_checklist); ?>;
+                // Initialize all possible checklist items
+                defaultKeys.forEach(key => {
+                    this.items[key] = {
+                        checked: (initialItems[key] && initialItems[key].checked) ? true : false,
+                        value: (initialItems[key] && initialItems[key].value) ? initialItems[key].value : ''
+                    };
                 });
             },
-
-            showStatus(message, isSuccess, duration = 3000) {
-                this.status = message;
-                this.isSaved = isSuccess;
-                clearTimeout(this.timeout);
-                this.timeout = setTimeout(() => {
-                    this.status = '';
-                }, duration);
-            },
-
-            toggleCheck(itemDescription) {
-                this.items[itemDescription].checked = !this.items[itemDescription].checked;
-            },
             
-            updateValue(itemDescription, value) {
-                this.items[itemDescription].value = value;
-            },
+            saveAllChanges() {
+                this.isSaving = true;
+                this.saveStatus.message = '';
 
-            saveChecklist() {
-                this.status = 'กำลังบันทึก...';
-                this.isSaved = false;
-                this.errorMessage = '';
-                
                 fetch('issue_checklist_action.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({
                         issue_id: this.issueId,
-                        items: this.items // Send the whole items object
+                        checklist_data: this.items
                     })
                 })
                 .then(response => {
-                    if (!response.ok) throw new Error('Network response was not ok');
+                    if (!response.ok) {
+                        return response.text().then(text => { 
+                            try {
+                                const errorData = JSON.parse(text);
+                                throw new Error(errorData.message || 'Server error with no message.');
+                            } catch (e) {
+                                throw new Error(text || `HTTP error! status: ${response.status}`);
+                            }
+                        });
+                    }
                     return response.json();
                 })
                 .then(data => {
                     if (data.success) {
-                        this.showStatus('บันทึก Checklist เรียบร้อยแล้ว', true);
+                        this.saveStatus = { success: true, message: 'บันทึกเรียบร้อย!' };
                     } else {
-                        this.showStatus('เกิดข้อผิดพลาดในการบันทึก', false);
-                        this.errorMessage = 'ข้อผิดพลาด: ' + (data.message || 'ไม่ทราบสาเหตุ');
+                        this.saveStatus = { success: false, message: 'เกิดข้อผิดพลาด: ' + (data.message || 'ไม่ทราบสาเหตุ') };
                     }
                 })
                 .catch(error => {
-                    this.showStatus('เกิดข้อผิดพลาดในการเชื่อมต่อ', false);
-                    this.errorMessage = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้';
+                    this.saveStatus = { success: false, message: 'เกิดข้อผิดพลาด: ' + error.message };
+                    console.error('Error:', error);
+                })
+                .finally(() => {
+                    this.isSaving = false;
+                    setTimeout(() => { this.saveStatus.message = '' }, 5000); // Hide message after 5s
                 });
             }
-        }));
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const canvas = document.getElementById('signature-pad');
+        if (canvas) {
+            const signaturePad = new SignaturePad(canvas, {
+                backgroundColor: 'rgb(255, 255, 255)'
+            });
+
+            document.getElementById('clear-signature').addEventListener('click', function () {
+                signaturePad.clear();
+            });
+
+            const form = canvas.closest('form');
+            form.addEventListener('submit', function (event) {
+                if (signaturePad.isEmpty()) {
+                    alert("กรุณาลงลายมือชื่อเพื่อยืนยันการปิดงาน");
+                    event.preventDefault();
+                    return;
+                }
+                const signatureDataInput = document.getElementById('signature_data');
+                signatureDataInput.value = signaturePad.toDataURL('image/png');
+            });
+        }
     });
 </script>
-<?php 
-$conn->close();
-require_once 'includes/footer.php'; 
-?>
 

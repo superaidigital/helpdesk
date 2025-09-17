@@ -5,43 +5,38 @@ check_auth(['admin']);
 require_once 'includes/header.php';
 
 // --- Date Filtering Logic ---
-// ใช้ค่า default ที่ปลอดภัยและตรวจสอบรูปแบบวันที่
 $start_date = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
 $end_date = $_GET['end_date'] ?? date('Y-m-d');
-// Basic validation to ensure they are in Y-m-d format
-$start_date = date('Y-m-d', strtotime($start_date));
-$end_date = date('Y-m-d', strtotime($end_date));
+$base_condition = "DATE(created_at) BETWEEN ? AND ?";
 
-
-// --- SQL Queries for Analytics using PREPARED STATEMENTS ---
+// --- SQL Queries for Analytics ---
 
 // 1. Top 5 Most Frequent Problems
-$sql1 = "SELECT title, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY title ORDER BY total DESC, title ASC LIMIT 5";
-$stmt1 = $conn->prepare($sql1);
-$stmt1->bind_param("ss", $start_date, $end_date);
-$stmt1->execute();
-$top_problems_q = $stmt1->get_result();
+$top_problems_stmt = $conn->prepare("SELECT title, COUNT(id) as total FROM issues WHERE $base_condition GROUP BY title ORDER BY total DESC, title ASC LIMIT 5");
+$top_problems_stmt->bind_param("ss", $start_date, $end_date);
+$top_problems_stmt->execute();
+$top_problems_q = $top_problems_stmt->get_result();
 
-// 2. Top 5 Busiest Departments
-$sql2 = "SELECT reporter_department, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? AND reporter_department IS NOT NULL AND reporter_department != '' GROUP BY reporter_department ORDER BY total DESC, reporter_department ASC LIMIT 5";
-$stmt2 = $conn->prepare($sql2);
-$stmt2->bind_param("ss", $start_date, $end_date);
-$stmt2->execute();
-$top_departments_q = $stmt2->get_result();
+
+// 2. Top 5 Busiest Departments (FIXED SQL SYNTAX)
+$top_departments_stmt = $conn->prepare("SELECT reporter_department, COUNT(id) as total FROM issues WHERE $base_condition AND reporter_department IS NOT NULL AND reporter_department != '' GROUP BY reporter_department ORDER BY total DESC, reporter_department ASC LIMIT 5");
+$top_departments_stmt->bind_param("ss", $start_date, $end_date);
+$top_departments_stmt->execute();
+$top_departments_q = $top_departments_stmt->get_result();
+
 
 // 3. Average Resolution Time by Category (in hours)
-$sql3 = "SELECT category, AVG(TIMESTAMPDIFF(HOUR, created_at, completed_at)) as avg_hours FROM issues WHERE status = 'done' AND completed_at IS NOT NULL AND DATE(completed_at) BETWEEN ? AND ? GROUP BY category ORDER BY avg_hours DESC";
-$stmt3 = $conn->prepare($sql3);
-$stmt3->bind_param("ss", $start_date, $end_date);
-$stmt3->execute();
-$avg_time_by_cat_q = $stmt3->get_result();
+$avg_time_by_cat_stmt = $conn->prepare("SELECT category, AVG(TIMESTAMPDIFF(HOUR, created_at, completed_at)) as avg_hours FROM issues WHERE status = 'done' AND completed_at IS NOT NULL AND DATE(completed_at) BETWEEN ? AND ? GROUP BY category ORDER BY avg_hours DESC");
+$avg_time_by_cat_stmt->bind_param("ss", $start_date, $end_date);
+$avg_time_by_cat_stmt->execute();
+$avg_time_by_cat_q = $avg_time_by_cat_stmt->get_result();
 
 // 4. Issues by Day of Week (for Bar Chart)
-$sql4 = "SELECT DAYNAME(created_at) as day_name, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY DAYOFWEEK(created_at), day_name ORDER BY DAYOFWEEK(created_at) ASC";
-$stmt4 = $conn->prepare($sql4);
-$stmt4->bind_param("ss", $start_date, $end_date);
-$stmt4->execute();
-$day_of_week_q = $stmt4->get_result();
+$day_of_week_stmt = $conn->prepare("SELECT DAYNAME(created_at) as day_name, COUNT(id) as total FROM issues WHERE $base_condition GROUP BY DAYOFWEEK(created_at), day_name ORDER BY DAYOFWEEK(created_at) ASC");
+$day_of_week_stmt->bind_param("ss", $start_date, $end_date);
+$day_of_week_stmt->execute();
+$day_of_week_q = $day_of_week_stmt->get_result();
+
 $day_labels = [];
 $day_values = [];
 $thai_days = ['Sunday'=>'อาทิตย์', 'Monday'=>'จันทร์', 'Tuesday'=>'อังคาร', 'Wednesday'=>'พุธ', 'Thursday'=>'พฤหัสบดี', 'Friday'=>'ศุกร์', 'Saturday'=>'เสาร์'];
@@ -51,6 +46,7 @@ while($row = $day_of_week_q->fetch_assoc()){
 }
 $day_labels_json = json_encode($day_labels);
 $day_values_json = json_encode($day_values);
+
 ?>
 <!-- Chart.js Library -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -138,10 +134,6 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <?php 
-$stmt1->close();
-$stmt2->close();
-$stmt3->close();
-$stmt4->close();
 $conn->close();
 require_once 'includes/footer.php'; 
 ?>

@@ -7,82 +7,52 @@ require_once 'includes/header.php';
 // --- Date Filtering Logic ---
 $start_date = $_GET['start_date'] ?? date('Y-m-01');
 $end_date = $_GET['end_date'] ?? date('Y-m-t');
-// Basic validation to ensure they are in Y-m-d format
-$start_date = date('Y-m-d', strtotime($start_date));
-$end_date = date('Y-m-d', strtotime($end_date));
 
-// --- SQL Queries for Stats using PREPARED STATEMENTS ---
-$params = [$start_date, $end_date];
-$types = "ss";
+// --- SQL Queries for Stats ---
+$date_condition = "WHERE DATE(created_at) BETWEEN '$start_date' AND '$end_date'";
+$completed_date_condition = "WHERE status = 'done' AND completed_at IS NOT NULL AND DATE(completed_at) BETWEEN '$start_date' AND '$end_date'";
 
 // Stat Cards
-$total_issues_q = $conn->prepare("SELECT COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ?");
-$total_issues_q->bind_param($types, ...$params);
-$total_issues_q->execute();
-$total_issues = $total_issues_q->get_result()->fetch_assoc()['total'] ?? 0;
-$total_issues_q->close();
+$total_issues = $conn->query("SELECT COUNT(id) as total FROM issues $date_condition")->fetch_assoc()['total'] ?? 0;
+$done_issues = $conn->query("SELECT COUNT(id) as total FROM issues $completed_date_condition")->fetch_assoc()['total'] ?? 0;
+$avg_time_q = $conn->query("SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, completed_at)) as avg_min FROM issues $completed_date_condition");
+$avg_minutes = $avg_time_q->fetch_assoc()['avg_min'];
 
-$done_issues_q = $conn->prepare("SELECT COUNT(id) as total FROM issues WHERE status = 'done' AND completed_at IS NOT NULL AND DATE(completed_at) BETWEEN ? AND ?");
-$done_issues_q->bind_param($types, ...$params);
-$done_issues_q->execute();
-$done_issues = $done_issues_q->get_result()->fetch_assoc()['total'] ?? 0;
-$done_issues_q->close();
+$avg_satisfaction_q = $conn->query("SELECT AVG(satisfaction_rating) as avg_rating FROM issues WHERE satisfaction_rating IS NOT NULL AND DATE(completed_at) BETWEEN '$start_date' AND '$end_date'");
+$avg_satisfaction = $avg_satisfaction_q->fetch_assoc()['avg_rating'];
 
-$avg_time_q = $conn->prepare("SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, completed_at)) as avg_min FROM issues WHERE status = 'done' AND completed_at IS NOT NULL AND DATE(completed_at) BETWEEN ? AND ?");
-$avg_time_q->bind_param($types, ...$params);
-$avg_time_q->execute();
-$avg_minutes = $avg_time_q->get_result()->fetch_assoc()['avg_min'];
-$avg_time_q->close();
-
-$avg_satisfaction_q = $conn->prepare("SELECT AVG(satisfaction_rating) as avg_rating FROM issues WHERE satisfaction_rating IS NOT NULL AND DATE(completed_at) BETWEEN ? AND ?");
-$avg_satisfaction_q->bind_param($types, ...$params);
-$avg_satisfaction_q->execute();
-$avg_satisfaction = $avg_satisfaction_q->get_result()->fetch_assoc()['avg_rating'];
-$avg_satisfaction_q->close();
 
 $avg_time_str = "N/A";
 if ($avg_minutes) {
     $avg_days = floor($avg_minutes / 1440);
     $rem_minutes = $avg_minutes % 1440;
     $avg_hours = floor($rem_minutes / 60);
-    $rem_minutes = floor($rem_minutes % 60);
+    $rem_minutes = $rem_minutes % 60;
     $avg_time_str = ($avg_days > 0 ? "{$avg_days} วัน " : "") . "{$avg_hours} ชม. {$rem_minutes} นาที";
 }
 
 // Issues by Status (for Pie Chart)
-$status_report_q = $conn->prepare("SELECT status, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY status");
-$status_report_q->bind_param($types, ...$params);
-$status_report_q->execute();
-$status_result = $status_report_q->get_result();
+$status_report_q = $conn->query("SELECT status, COUNT(id) as total FROM issues $date_condition GROUP BY status");
 $status_data = [];
-while ($row = $status_result->fetch_assoc()) {
+while ($row = $status_report_q->fetch_assoc()) {
     $status_data[$row['status']] = $row['total'];
 }
 $status_labels_json = json_encode(array_keys($status_data));
 $status_values_json = json_encode(array_values($status_data));
-$status_report_q->close();
 
 
 // Issues by Category (for Bar Chart)
-$category_report_q = $conn->prepare("SELECT category, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY category ORDER BY total DESC");
-$category_report_q->bind_param($types, ...$params);
-$category_report_q->execute();
-$category_result = $category_report_q->get_result();
+$category_report_q = $conn->query("SELECT category, COUNT(id) as total FROM issues $date_condition GROUP BY category ORDER BY total DESC");
 $category_data = [];
-while ($row = $category_result->fetch_assoc()) {
+while ($row = $category_report_q->fetch_assoc()) {
     $category_data[] = $row;
 }
 $category_labels_json = json_encode(array_column($category_data, 'category'));
 $category_values_json = json_encode(array_column($category_data, 'total'));
-$category_report_q->close();
 
 
 // Issues by IT Staff
-$staff_report_q = $conn->prepare("SELECT u.id, u.fullname, COUNT(i.id) as total_assigned, SUM(CASE WHEN i.status = 'done' THEN 1 ELSE 0 END) as total_done FROM users u LEFT JOIN issues i ON u.id = i.assigned_to AND DATE(i.created_at) BETWEEN ? AND ? WHERE u.role IN ('it', 'admin') GROUP BY u.id, u.fullname ORDER BY total_assigned DESC");
-$staff_report_q->bind_param($types, ...$params);
-$staff_report_q->execute();
-$staff_result = $staff_report_q->get_result();
-$staff_report_q->close();
+$staff_report_q = $conn->query("SELECT u.id, u.fullname, COUNT(i.id) as total_assigned, SUM(CASE WHEN i.status = 'done' THEN 1 ELSE 0 END) as total_done FROM users u LEFT JOIN issues i ON u.id = i.assigned_to AND DATE(i.created_at) BETWEEN '$start_date' AND '$end_date' WHERE u.role = 'it' GROUP BY u.id, u.fullname ORDER BY total_assigned DESC");
 ?>
 <!-- Chart.js Library -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -145,7 +115,7 @@ $staff_report_q->close();
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    <?php while($staff = $staff_result->fetch_assoc()): ?>
+                    <?php while($staff = $staff_report_q->fetch_assoc()): ?>
                     <tr>
                         <td class="px-4 py-2 text-sm font-medium text-gray-900"><?php echo htmlspecialchars($staff['fullname']); ?></td>
                         <td class="px-4 py-2 text-center text-sm text-gray-500"><?php echo (int)$staff['total_assigned']; ?></td>
@@ -210,3 +180,4 @@ document.addEventListener('DOMContentLoaded', function () {
 $conn->close();
 require_once 'includes/footer.php'; 
 ?>
+

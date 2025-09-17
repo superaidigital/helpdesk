@@ -49,7 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         // 4. ส่งอีเมลแจ้งเตือนเจ้าหน้าที่
-        $it_notification_email = "it.support@example.com"; // <-- เปลี่ยนเป็นอีเมลกลางของ IT
+        $it_notification_email = "it.support@example.com"; // <-- TODO: เปลี่ยนเป็นอีเมลกลางของ IT
         $email_subject = "[Helpdesk] มีเรื่องแจ้งใหม่ #" . $issue_id . ": " . $title;
         $email_body = "<h2>มีเรื่องแจ้งใหม่ในระบบ Helpdesk</h2>"
                     . "<p><strong>หมายเลข:</strong> #$issue_id</p>"
@@ -58,7 +58,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     . "<p><strong>หมวดหมู่:</strong> " . htmlspecialchars($category) . "</p>"
                     . "<p>กรุณาเข้าระบบเพื่อตรวจสอบและรับงาน</p>";
         
-        send_email($it_notification_email, $email_subject, $email_body);
+        // send_email($it_notification_email, $email_subject, $email_body); // Deactivated until configured
         
         // 5. ส่งต่อไปยังหน้าขอบคุณ
         header("Location: public_thankyou.php?id=" . $issue_id);
@@ -66,7 +66,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     } else {
         // กรณีเกิดข้อผิดพลาดในการบันทึกข้อมูลหลัก
-        echo "Error: " . $stmt->error;
+        // For production, you might want to log this error instead of echoing
+        error_log("Submit Issue Error: " . $stmt->error);
+        // Redirect to a generic error page or back to the form with an error message
+        redirect_with_message('public_form.php', 'error', 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง');
     }
 
     $stmt->close();
@@ -77,4 +80,3 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     header("Location: public_form.php");
     exit();
 }
-

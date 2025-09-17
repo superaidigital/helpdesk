@@ -164,6 +164,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
             </div>
             
             <!-- Checklist Section -->
+            <?php if ($issue['category'] !== 'อื่นๆ'): ?>
             <div class="mt-4">
                 <p class="font-bold">รายการตรวจสอบและแก้ไข:</p>
                 <div class="grid grid-cols-2 gap-x-4 text-sm mt-1">
@@ -181,6 +182,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
                     <?php endforeach; ?>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="mt-4 space-y-2">
                 <p><span class="checkbox"><?php echo $issue['status'] === 'done' ? '☑' : '☐'; ?></span> ดำเนินการแล้วเสร็จ สามารถใช้งานได้ปกติ</p>

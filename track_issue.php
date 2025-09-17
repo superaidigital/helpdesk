@@ -44,7 +44,7 @@ $status_color_map = [
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans">
@@ -89,7 +89,7 @@ $status_color_map = [
                                     <?php foreach ($comments as $comment): ?>
                                     <div class="flex items-start space-x-3">
                                         <div class="flex-shrink-0">
-                                             <img class="h-10 w-10 rounded-full" src="<?php echo htmlspecialchars($comment['image_url']); ?>" alt="">
+                                             <img class="h-10 w-10 rounded-full object-cover" src="<?php echo htmlspecialchars(get_user_avatar($comment['image_url'])); ?>" alt="Profile image of <?php echo htmlspecialchars($comment['fullname']); ?>">
                                         </div>
                                         <div>
                                             <p><strong><?php echo htmlspecialchars($comment['fullname']); ?></strong> 
@@ -117,7 +117,7 @@ $status_color_map = [
                             <!-- Signature Card -->
                             <div class="bg-white rounded-lg shadow-md p-6">
                                 <h3 class="font-semibold text-gray-800 mb-2">ลงลายมือชื่อเพื่อปิดงาน</h3>
-                                <div class="border rounded-md">
+                                <div class="border rounded-md bg-white">
                                     <canvas id="signature-pad" class="w-full h-40"></canvas>
                                 </div>
                                 <div class="text-center mt-2">

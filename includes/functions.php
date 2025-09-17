@@ -5,8 +5,6 @@
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-// Ensure the path correctly points to the main project directory
-require_once __DIR__ . '/../config.php'; 
 require_once __DIR__ . '/PHPMailer/Exception.php';
 require_once __DIR__ . '/PHPMailer/PHPMailer.php';
 require_once __DIR__ . '/PHPMailer/SMTP.php';
@@ -48,6 +46,29 @@ function formatDate($dateString) {
         return '-';
     }
 }
+
+/**
+ * [NEW] จัดรูปแบบระยะเวลาจากนาทีเป็นสตริงที่อ่านง่าย (วัน ชั่วโมง นาที)
+ * @param int|null $total_minutes จำนวนนาทีทั้งหมด
+ * @return string
+ */
+function formatDuration($total_minutes) {
+    if (is_null($total_minutes) || $total_minutes <= 0) {
+        return 'N/A';
+    }
+    $days = floor($total_minutes / 1440);
+    $rem_minutes = $total_minutes % 1440;
+    $hours = floor($rem_minutes / 60);
+    $minutes = floor($rem_minutes % 60);
+    
+    $str = '';
+    if ($days > 0) $str .= "{$days} วัน ";
+    if ($hours > 0) $str .= "{$hours} ชม. ";
+    if ($minutes > 0) $str .= "{$minutes} นาที";
+
+    return trim($str) ?: '0 นาที';
+}
+
 
 /**
  * สร้างลิงก์สำหรับระบบแบ่งหน้า (Pagination)
@@ -251,7 +272,7 @@ function getIssueFiles($issue_id, $conn) {
  */
 function getIssueComments($issue_id, $conn) {
     $comments = [];
-    $sql = "SELECT c.id, c.comment_text, c.attachment_link, c.created_at, u.fullname, u.image_url FROM comments c JOIN users u ON c.user_id = u.id WHERE c.issue_id = ? ORDER BY c.created_at ASC";
+    $sql = "SELECT c.id, c.comment_text, c.attachment_link, c.created_at, u.fullname, u.image_url FROM comments c JOIN users u ON c.user_id = u.id WHERE c.issue_id = ? ORDER BY c.created_at DESC";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $issue_id);
     $stmt->execute();
@@ -364,23 +385,11 @@ function getIssueChecklistItems($issue_id, $conn) {
 }
 
 /**
- * ดึงชุดรายการตรวจสอบ (Checklist) ตามหมวดหมู่ของปัญหา
+ * [NEW] ดึงชุดรายการตรวจสอบ (Checklist) ตามหมวดหมู่ของปัญหา
  * @param string $category ชื่อหมวดหมู่
  * @return array รายการ Checklist
  */
 function get_checklist_by_category($category) {
-    // ชุดรายการตรวจสอบเริ่มต้น
-    $default_checklist = [
-        'ตรวจสอบสายไฟ/สายสัญญาณ', 
-        'ทดสอบการพิมพ์/การสแกน', 
-        'ตรวจสอบการเชื่อมต่อเครือข่าย', 
-        'อัปเดตไดรเวอร์/ซอฟต์แวร์', 
-        'สแกนไวรัส/มัลแวร์', 
-        'ทำความสะอาดอุปกรณ์เบื้องต้น', 
-        'อื่นๆ'
-    ];
-
-    // ชุดรายการตรวจสอบสำหรับแต่ละหมวดหมู่
     $checklists = [
         'ฮาร์ดแวร์' => [
             'ตรวจสอบการเชื่อมต่อสายไฟ/สายสัญญาณ', 'ตรวจสอบไดรเวอร์อุปกรณ์', 'ทดสอบการทำงานของพอร์ตเชื่อมต่อ',
@@ -394,14 +403,14 @@ function get_checklist_by_category($category) {
             'ตรวจสอบสถานะไฟบน Router/Switch', 'ทดสอบคำสั่ง Ping ไปยัง Gateway', 'ตรวจสอบการตั้งค่า IP Address',
             'ลองเชื่อมต่อด้วยสาย LAN', 'ล้างค่า DNS Cache', 'อื่นๆ'
         ],
-        'ออกแบบและพัฒนาระบบ' => [
-            'ตรวจสอบ Requirement', 'ตรวจสอบ Database Schema', 'ทดสอบ Unit Test',
-            'ตรวจสอบ Code Standard', 'Deploy to Staging Server', 'อื่นๆ'
+        // หมวดหมู่อื่นๆ ใช้ชุดรายการตรวจสอบเริ่มต้น
+        'default' => [
+            'ตรวจสอบสายไฟ/สายสัญญาณ', 'ทดสอบการพิมพ์/การสแกน', 'ตรวจสอบการเชื่อมต่อเครือข่าย', 
+            'อัปเดตไดรเวอร์/ซอฟต์แวร์', 'สแกนไวรัส/มัลแวร์', 'ทำความสะอาดอุปกรณ์เบื้องต้น', 'อื่นๆ'
         ]
     ];
 
-    // คืนค่ารายการตรวจสอบที่ตรงกับหมวดหมู่ หรือคืนค่าเริ่มต้นถ้าไม่ตรง
-    return $checklists[$category] ?? $default_checklist;
+    return $checklists[$category] ?? $checklists['default'];
 }
 
 
@@ -417,23 +426,17 @@ function get_checklist_by_category($category) {
  * @return bool
  */
 function send_email($to, $subject, $body) {
-    // ตรวจสอบว่ามีการตั้งค่า SMTP หรือไม่
-    if (empty(SMTP_HOST) || empty(SMTP_USER) || empty(SMTP_PASS)) {
-        error_log("Email configuration is missing. Cannot send email.");
-        return false;
-    }
-
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
-        $mail->Host       = SMTP_HOST;
+        $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
-        $mail->Username   = SMTP_USER;
-        $mail->Password   = SMTP_PASS;
+        $mail->Username   = 'your.email@gmail.com';
+        $mail->Password   = 'your_app_password';
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        $mail->Port       = SMTP_PORT;
+        $mail->Port       = 465;
         $mail->CharSet    = 'UTF-8';
-        $mail->setFrom(SMTP_USER, 'IT Helpdesk อบจ.ศรีสะเกษ');
+        $mail->setFrom('your.email@gmail.com', 'IT Helpdesk อบจ.ศรีสะเกษ');
         $mail->addAddress($to);
         $mail->isHTML(true);
         $mail->Subject = $subject;
@@ -447,4 +450,3 @@ function send_email($to, $subject, $body) {
     }
 }
 ?>
-

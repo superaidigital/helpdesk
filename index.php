@@ -47,6 +47,10 @@ if (isset($_SESSION['user_id'])) {
                 <a href="contact_page.php" class="w-full flex items-center justify-center px-4 py-3 font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105">
                     <i class="fa-solid fa-address-book mr-2"></i> ติดต่อเจ้าหน้าที่
                 </a>
+
+                <a href="knowledge_base.php" class="w-full flex items-center justify-center px-4 py-3 font-bold text-purple-700 bg-purple-100 rounded-lg hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-transform transform hover:scale-105">
+                    <i class="fa-solid fa-book mr-2"></i> ฐานความรู้ (Knowledge Base)
+                </a>
             </div>
 
              <div class="relative" x-data="{ isLoginOpen: false }">
@@ -92,4 +96,3 @@ if (isset($_SESSION['user_id'])) {
     </div>
 </body>
 </html>
-

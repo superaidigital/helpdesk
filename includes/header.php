@@ -21,7 +21,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
 <body class="bg-gray-100 font-sans h-full">
     <div id="app" class="flex flex-col min-h-full">
@@ -52,7 +52,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                                     'title' => 'รายงาน',
                                                     'pages' => [
                                                         'admin_reports.php' => 'รายงานสรุปผล',
-                                                        'admin_analytics.php' => 'รายงานวิเคราะห์ภาพรวม'
+                                                        'admin_analytics.php' => 'รายงานวิเคราะห์ภาพรวม',
+                                                        'admin_monthly_report.php' => 'รายงานประจำเดือน'
                                                     ]
                                                 ],
                                                 'admin_system.php' => 'จัดการระบบ',
@@ -139,4 +140,3 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <?php 
                     display_flash_message(); 
                 ?>
-
