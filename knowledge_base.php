@@ -1,7 +1,7 @@
 <?php
 $page_title = "ฐานความรู้ (Knowledge Base)";
 require_once 'includes/functions.php';
-// check_auth(['it', 'admin']); // Removed authentication check
+check_auth(['it', 'admin']);
 require_once 'includes/header.php';
 
 // รับค่าคำค้นหาจาก URL (GET request)
@@ -29,15 +29,6 @@ $category_icon_map = [
     'อื่นๆ' => 'fa-question-circle'
 ];
 ?>
-<style>
-    /* For smooth accordion transition */
-    .accordion-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease-in-out;
-    }
-</style>
-
 <div class="max-w-3xl mx-auto" x-data="{ activeAccordion: null }">
     <!-- Search Form -->
     <form method="GET" action="knowledge_base.php" class="mb-6 relative">
@@ -84,13 +75,6 @@ $category_icon_map = [
             </div>
         <?php endif; ?>
     </div>
-    
-    <div class="text-center mt-8">
-        <a href="index.php" class="text-sm text-gray-600 hover:text-indigo-600">
-            <i class="fa-solid fa-arrow-left mr-1"></i> กลับหน้าแรก
-        </a>
-    </div>
-
 </div>
 <!-- Add defer attribute to ensure Alpine.js runs after the DOM is fully parsed -->
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>

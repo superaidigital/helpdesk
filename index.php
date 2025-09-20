@@ -25,7 +25,7 @@ if (isset($_SESSION['user_id'])) {
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
 <body class="font-sans">
     <div class="min-h-screen flex items-center justify-center bg-gray-100 p-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
@@ -44,12 +44,12 @@ if (isset($_SESSION['user_id'])) {
                     <i class="fa-solid fa-search mr-2"></i> ติดตามสถานะเรื่อง
                 </a>
 
-                <a href="contact_page.php" class="w-full flex items-center justify-center px-4 py-3 font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105">
-                    <i class="fa-solid fa-address-book mr-2"></i> ติดต่อเจ้าหน้าที่
+                <a href="infographic.php" class="w-full flex items-center justify-center px-4 py-3 font-bold text-purple-700 bg-purple-100 rounded-lg hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-transform transform hover:scale-105">
+                    <i class="fa-solid fa-circle-info mr-2"></i> ขั้นตอนการใช้งาน
                 </a>
 
-                <a href="knowledge_base.php" class="w-full flex items-center justify-center px-4 py-3 font-bold text-purple-700 bg-purple-100 rounded-lg hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-transform transform hover:scale-105">
-                    <i class="fa-solid fa-book mr-2"></i> ฐานความรู้ (Knowledge Base)
+                <a href="contact_page.php" class="w-full flex items-center justify-center px-4 py-3 font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105">
+                    <i class="fa-solid fa-address-book mr-2"></i> ติดต่อเจ้าหน้าที่
                 </a>
             </div>
 
