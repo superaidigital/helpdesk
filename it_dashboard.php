@@ -15,8 +15,8 @@ $offset = ($current_page - 1) * $items_per_page;
 
 $view = $_GET['view'] ?? 'active';
 $search_term = trim($_GET['search'] ?? '');
-$search_query = "%" . $search_term . "%";
 
+// --- Build SQL Query Securely using Prepared Statements ---
 $sql_conditions = [];
 $params = [];
 $types = "";
@@ -24,20 +24,20 @@ $types = "";
 if ($view === 'done') {
     $page_title = "รายการปัญหาที่เสร็จสิ้น";
     $sql_conditions[] = "status = 'done'";
-    // --- START: MODIFICATION ---
     // ถ้าผู้ใช้เป็น 'it', ให้แสดงเฉพาะงานของตัวเอง
     if ($_SESSION['role'] === 'it') {
         $sql_conditions[] = "assigned_to = ?";
         $params[] = $_SESSION['user_id'];
         $types .= "i";
     }
-    // --- END: MODIFICATION ---
 } else {
     $page_title = "รายการปัญหา (ที่ยังไม่เสร็จสิ้น)";
     $sql_conditions[] = "status != 'done'";
 }
 
+// SECURITY: Add search condition with placeholders to prevent SQL Injection
 if (!empty($search_term)) {
+    $search_query = "%" . $search_term . "%";
     $sql_conditions[] = "(title LIKE ? OR description LIKE ? OR reporter_name LIKE ?)";
     array_push($params, $search_query, $search_query, $search_query);
     $types .= "sss";
@@ -176,3 +176,4 @@ $stmt->close();
 if(isset($conn)) $conn->close();
 require_once 'includes/footer.php'; 
 ?>
+

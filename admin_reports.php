@@ -8,51 +8,68 @@ require_once 'includes/header.php';
 $start_date = $_GET['start_date'] ?? date('Y-m-01');
 $end_date = $_GET['end_date'] ?? date('Y-m-t');
 
-// --- SQL Queries for Stats ---
-$date_condition = "WHERE DATE(created_at) BETWEEN '$start_date' AND '$end_date'";
-$completed_date_condition = "WHERE status = 'done' AND completed_at IS NOT NULL AND DATE(completed_at) BETWEEN '$start_date' AND '$end_date'";
+// --- SQL Queries for Stats using Prepared Statements ---
 
 // Stat Cards
-$total_issues = $conn->query("SELECT COUNT(id) as total FROM issues $date_condition")->fetch_assoc()['total'] ?? 0;
-$done_issues = $conn->query("SELECT COUNT(id) as total FROM issues $completed_date_condition")->fetch_assoc()['total'] ?? 0;
-$avg_time_q = $conn->query("SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, completed_at)) as avg_min FROM issues $completed_date_condition");
-$avg_minutes = $avg_time_q->fetch_assoc()['avg_min'];
+$stmt = $conn->prepare("SELECT COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ?");
+$stmt->bind_param("ss", $start_date, $end_date);
+$stmt->execute();
+$total_issues = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+$stmt->close();
 
-$avg_satisfaction_q = $conn->query("SELECT AVG(satisfaction_rating) as avg_rating FROM issues WHERE satisfaction_rating IS NOT NULL AND DATE(completed_at) BETWEEN '$start_date' AND '$end_date'");
-$avg_satisfaction = $avg_satisfaction_q->fetch_assoc()['avg_rating'];
+$stmt = $conn->prepare("SELECT COUNT(id) as total FROM issues WHERE status = 'done' AND completed_at IS NOT NULL AND DATE(completed_at) BETWEEN ? AND ?");
+$stmt->bind_param("ss", $start_date, $end_date);
+$stmt->execute();
+$done_issues = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+$stmt->close();
 
+$stmt = $conn->prepare("SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, completed_at)) as avg_min FROM issues WHERE status = 'done' AND completed_at IS NOT NULL AND DATE(completed_at) BETWEEN ? AND ?");
+$stmt->bind_param("ss", $start_date, $end_date);
+$stmt->execute();
+$avg_minutes = $stmt->get_result()->fetch_assoc()['avg_min'];
+$stmt->close();
 
-$avg_time_str = "N/A";
-if ($avg_minutes) {
-    $avg_days = floor($avg_minutes / 1440);
-    $rem_minutes = $avg_minutes % 1440;
-    $avg_hours = floor($rem_minutes / 60);
-    $rem_minutes = $rem_minutes % 60;
-    $avg_time_str = ($avg_days > 0 ? "{$avg_days} วัน " : "") . "{$avg_hours} ชม. {$rem_minutes} นาที";
-}
+$stmt = $conn->prepare("SELECT AVG(satisfaction_rating) as avg_rating FROM issues WHERE satisfaction_rating IS NOT NULL AND DATE(completed_at) BETWEEN ? AND ?");
+$stmt->bind_param("ss", $start_date, $end_date);
+$stmt->execute();
+$avg_satisfaction = $stmt->get_result()->fetch_assoc()['avg_rating'];
+$stmt->close();
+
+$avg_time_str = formatDuration($avg_minutes);
 
 // Issues by Status (for Pie Chart)
-$status_report_q = $conn->query("SELECT status, COUNT(id) as total FROM issues $date_condition GROUP BY status");
+$stmt = $conn->prepare("SELECT status, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY status");
+$stmt->bind_param("ss", $start_date, $end_date);
+$stmt->execute();
+$status_report_q = $stmt->get_result();
 $status_data = [];
 while ($row = $status_report_q->fetch_assoc()) {
     $status_data[$row['status']] = $row['total'];
 }
 $status_labels_json = json_encode(array_keys($status_data));
 $status_values_json = json_encode(array_values($status_data));
+$stmt->close();
 
 
 // Issues by Category (for Bar Chart)
-$category_report_q = $conn->query("SELECT category, COUNT(id) as total FROM issues $date_condition GROUP BY category ORDER BY total DESC");
+$stmt = $conn->prepare("SELECT category, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY category ORDER BY total DESC");
+$stmt->bind_param("ss", $start_date, $end_date);
+$stmt->execute();
+$category_report_q = $stmt->get_result();
 $category_data = [];
 while ($row = $category_report_q->fetch_assoc()) {
     $category_data[] = $row;
 }
 $category_labels_json = json_encode(array_column($category_data, 'category'));
 $category_values_json = json_encode(array_column($category_data, 'total'));
+$stmt->close();
 
 
 // Issues by IT Staff
-$staff_report_q = $conn->query("SELECT u.id, u.fullname, COUNT(i.id) as total_assigned, SUM(CASE WHEN i.status = 'done' THEN 1 ELSE 0 END) as total_done FROM users u LEFT JOIN issues i ON u.id = i.assigned_to AND DATE(i.created_at) BETWEEN '$start_date' AND '$end_date' WHERE u.role = 'it' GROUP BY u.id, u.fullname ORDER BY total_assigned DESC");
+$stmt = $conn->prepare("SELECT u.id, u.fullname, COUNT(i.id) as total_assigned, SUM(CASE WHEN i.status = 'done' THEN 1 ELSE 0 END) as total_done FROM users u LEFT JOIN issues i ON u.id = i.assigned_to AND DATE(i.created_at) BETWEEN ? AND ? WHERE u.role IN ('it', 'admin') GROUP BY u.id, u.fullname ORDER BY total_assigned DESC");
+$stmt->bind_param("ss", $start_date, $end_date);
+$stmt->execute();
+$staff_report_q = $stmt->get_result();
 ?>
 <!-- Chart.js Library -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -121,7 +138,7 @@ $staff_report_q = $conn->query("SELECT u.id, u.fullname, COUNT(i.id) as total_as
                         <td class="px-4 py-2 text-center text-sm text-gray-500"><?php echo (int)$staff['total_assigned']; ?></td>
                         <td class="px-4 py-2 text-center text-sm text-gray-500"><?php echo (int)$staff['total_done']; ?></td>
                     </tr>
-                    <?php endwhile; ?>
+                    <?php endwhile; $staff_report_q->close(); ?>
                 </tbody>
             </table>
         </div>
@@ -130,6 +147,7 @@ $staff_report_q = $conn->query("SELECT u.id, u.fullname, COUNT(i.id) as total_as
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const sarabunFont = { family: 'Sarabun' };
     // Bar Chart for Categories
     const categoryCtx = document.getElementById('categoryChart').getContext('2d');
     new Chart(categoryCtx, {
@@ -144,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 borderWidth: 1
             }]
         },
-        options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }}}, plugins: { legend: { display: false }}}
+        options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }}}, plugins: { legend: { display: false }, labels: {font: sarabunFont} }}
     });
 
     // Pie Chart for Statuses
@@ -160,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 borderWidth: 1
             }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'top' }}}
+        options: { responsive: true, plugins: { legend: { position: 'top', labels: {font: sarabunFont} }}}
     });
 
     // Script for dynamic export link

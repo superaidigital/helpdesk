@@ -98,8 +98,10 @@ for ($i = 5; $i >= 0; $i--) {
     $loop_year = $current_month_date->format('Y'); $loop_month = $current_month_date->format('m');
     $loop_start_date = "$loop_year-$loop_month-01"; $loop_end_date = date('Y-m-t', strtotime($loop_start_date));
     $trend_labels[] = $thai_months[$loop_month] . " " . substr($loop_year + 543, 2);
+    
     $assigned_sql = "SELECT COUNT(id) as total FROM issues WHERE assigned_to = ? AND DATE(created_at) BETWEEN ? AND ?";
     $assigned_q = $conn->prepare($assigned_sql); $assigned_q->bind_param("iss", $current_user_id, $loop_start_date, $loop_end_date); $assigned_q->execute(); $trend_data['assigned'][] = $assigned_q->get_result()->fetch_assoc()['total'] ?? 0; $assigned_q->close();
+    
     $completed_sql = "SELECT COUNT(id) as total FROM issues WHERE assigned_to = ? AND status = 'done' AND DATE(completed_at) BETWEEN ? AND ?";
     $completed_q = $conn->prepare($completed_sql); $completed_q->bind_param("iss", $current_user_id, $loop_start_date, $loop_end_date); $completed_q->execute(); $trend_data['completed'][] = $completed_q->get_result()->fetch_assoc()['total'] ?? 0; $completed_q->close();
 }
@@ -250,59 +252,60 @@ $trend_labels_json = json_encode($trend_labels); $trend_assigned_json = json_enc
 
     <script>
         // This script runs on the print page to render charts before printing
-        const sarabunFont = { family: 'Sarabun' };
-        const chartDefaults = { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            plugins: { legend: { labels: { font: sarabunFont } } },
-            animation: { duration: 0 }
-        };
+        document.addEventListener('DOMContentLoaded', function () {
+            const sarabunFont = { family: 'Sarabun' };
+            const chartDefaults = { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { labels: { font: sarabunFont } } },
+                animation: { duration: 0 }
+            };
 
-        // Performance Comparison Bar Chart
-        new Chart(document.getElementById('printPerfChart').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: ['เสร็จสิ้น', 'รอดำเนินการ'],
-                datasets: [
-                    { label: 'ผลงานของคุณ', data: [<?php echo $stats['total_completed'] ?? 0; ?>, <?php echo $stats['total_pending'] ?? 0; ?>], backgroundColor: 'rgba(79, 70, 229, 0.7)' },
-                    { label: 'ค่าเฉลี่ยของทีม', data: [<?php echo round($team_avg_stats['avg_team_completed'] ?? 0, 1); ?>, <?php echo round($team_avg_stats['avg_team_pending'] ?? 0, 1); ?>], backgroundColor: 'rgba(107, 114, 128, 0.7)' }
-                ]
-            },
-            options: { ...chartDefaults, plugins: { legend: { display: true, position: 'top', ...chartDefaults.plugins.legend } }, scales: { y: { beginAtZero: true } } }
-        });
+            // Performance Comparison Bar Chart
+            new Chart(document.getElementById('printPerfChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['เสร็จสิ้น', 'รอดำเนินการ'],
+                    datasets: [
+                        { label: 'ผลงานของคุณ', data: [<?php echo $stats['total_completed'] ?? 0; ?>, <?php echo $stats['total_pending'] ?? 0; ?>], backgroundColor: 'rgba(79, 70, 229, 0.7)' },
+                        { label: 'ค่าเฉลี่ยของทีม', data: [<?php echo round($team_avg_stats['avg_team_completed'] ?? 0, 1); ?>, <?php echo round($team_avg_stats['avg_team_pending'] ?? 0, 1); ?>], backgroundColor: 'rgba(107, 114, 128, 0.7)' }
+                    ]
+                },
+                options: { ...chartDefaults, plugins: { legend: { display: true, position: 'top', ...chartDefaults.plugins.legend } }, scales: { y: { beginAtZero: true } } }
+            });
 
-        // Workload Trend Line Chart
-        new Chart(document.getElementById('printTrendChart').getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: <?php echo $trend_labels_json; ?>,
-                datasets: [
-                    { label: 'งานที่ได้รับมอบหมาย', data: <?php echo $trend_assigned_json; ?>, borderColor: 'rgba(59, 130, 246, 1)', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.1 },
-                    { label: 'งานที่เสร็จสิ้น', data: <?php echo $trend_completed_json; ?>, borderColor: 'rgba(16, 185, 129, 1)', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.1 }
-                ]
-            },
-            options: { ...chartDefaults, plugins: { legend: { display: true, position: 'top', ...chartDefaults.plugins.legend } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-        });
+            // Workload Trend Line Chart
+            new Chart(document.getElementById('printTrendChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: <?php echo $trend_labels_json; ?>,
+                    datasets: [
+                        { label: 'งานที่ได้รับมอบหมาย', data: <?php echo $trend_assigned_json; ?>, borderColor: 'rgba(59, 130, 246, 1)', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.1 },
+                        { label: 'งานที่เสร็จสิ้น', data: <?php echo $trend_completed_json; ?>, borderColor: 'rgba(16, 185, 129, 1)', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.1 }
+                    ]
+                },
+                options: { ...chartDefaults, plugins: { legend: { display: true, position: 'top', ...chartDefaults.plugins.legend } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+            });
 
-        // Doughnut Charts
-        new Chart(document.getElementById('printCategoryChart').getContext('2d'), {
-            type: 'doughnut',
-            data: {
-                labels: <?php echo $category_labels_json; ?>,
-                datasets: [{ data: <?php echo $category_values_json; ?>, backgroundColor: ['#4F46E5', '#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#6B7280'], hoverOffset: 4 }]
-            },
-            options: { ...chartDefaults, plugins: { legend: { position: 'right', ...chartDefaults.plugins.legend } } }
-        });
+            // Doughnut Charts
+            new Chart(document.getElementById('printCategoryChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: <?php echo $category_labels_json; ?>,
+                    datasets: [{ data: <?php echo $category_values_json; ?>, backgroundColor: ['#4F46E5', '#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#6B7280'], hoverOffset: 4 }]
+                },
+                options: { ...chartDefaults, plugins: { legend: { position: 'right', ...chartDefaults.plugins.legend } } }
+            });
 
-        new Chart(document.getElementById('printUrgencyChart').getContext('2d'), {
-            type: 'doughnut',
-            data: {
-                labels: <?php echo $urgency_labels_json; ?>,
-                datasets: [{ data: <?php echo $urgency_values_json; ?>, backgroundColor: ['#DC2626', '#F59E0B', '#10B981'], hoverOffset: 4 }]
-            },
-            options: { ...chartDefaults, plugins: { legend: { position: 'right', ...chartDefaults.plugins.legend } } }
+            new Chart(document.getElementById('printUrgencyChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: <?php echo $urgency_labels_json; ?>,
+                    datasets: [{ data: <?php echo $urgency_values_json; ?>, backgroundColor: ['#DC2626', '#F59E0B', '#10B981'], hoverOffset: 4 }]
+                },
+                options: { ...chartDefaults, plugins: { legend: { position: 'right', ...chartDefaults.plugins.legend } } }
+            });
         });
     </script>
 </body>
 </html>
-

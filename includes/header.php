@@ -49,19 +49,41 @@ if ($role === 'admin') {
 }
 ?>
 <!DOCTYPE html>
-<html lang="th" class="h-full bg-gray-100">
+<html lang="th" class="h-full" 
+    x-data="{
+        isDarkMode: false,
+        sidebarOpen: false,
+        isSidebarCollapsed: false,
+        init() {
+            this.isDarkMode = JSON.parse(localStorage.getItem('darkMode')) ?? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            this.isSidebarCollapsed = JSON.parse(localStorage.getItem('sidebarCollapsed')) ?? false;
+
+            this.$watch('isDarkMode', val => {
+                localStorage.setItem('darkMode', JSON.stringify(val));
+            });
+            this.$watch('isSidebarCollapsed', val => {
+                localStorage.setItem('sidebarCollapsed', JSON.stringify(val));
+            });
+        }
+    }" :class="{ 'dark': isDarkMode }">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo isset($page_title) ? htmlspecialchars($page_title) . ' - ระบบแจ้งปัญหาฯ' : 'ระบบแจ้งปัญหาและให้คำปรึกษา - อบจ.ศรีสะเกษ'; ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- ADDED: Tailwind dark mode configuration SCRIPT MOVED HERE -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
-<body class="h-full font-sans">
-    <div x-data="{ sidebarOpen: false }" @keydown.escape.window="sidebarOpen = false" class="flex h-full">
+<body class="h-full font-sans bg-slate-50 dark:bg-slate-900">
+    <div @keydown.escape.window="sidebarOpen = false" class="flex h-full">
         <!-- Off-canvas menu for mobile -->
         <div x-show="sidebarOpen" class="fixed inset-0 flex z-40 md:hidden" x-ref="dialog" aria-modal="true">
             <div x-show="sidebarOpen" 
@@ -87,15 +109,41 @@ if ($role === 'admin') {
                         <i class="fa-solid fa-xmark text-white"></i>
                     </button>
                 </div>
-                <!-- Sidebar content -->
-                <?php include 'sidebar_content.php'; ?>
+                <!-- Sidebar content for mobile (no collapse button) -->
+                 <div class="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+                    <div class="flex items-center flex-shrink-0 px-4">
+                        <i class="fa-solid fa-headset text-3xl text-white"></i>
+                        <span class="ml-3 font-bold text-xl text-white">IT HELP DESK</span>
+                    </div>
+                    <nav class="mt-5 flex-1 px-2 space-y-1">
+                        <?php
+                        $baseLinkClass = "group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200";
+                        $inactiveLinkClass = "text-indigo-100 hover:bg-indigo-600";
+                        $activeLinkClass = "bg-indigo-800 text-white";
+
+                        foreach ($menu_items as $url => $item) {
+                            $isActive = ($current_page === $url) || ($url === 'news.php' && $current_page === 'article_view.php');
+                            $class = $isActive ? $activeLinkClass : $inactiveLinkClass;
+                            echo "<a href='$url' class='$baseLinkClass $class'><i class='fa-solid " . $item['icon'] . " mr-3 flex-shrink-0 h-6 w-6 text-indigo-300'></i>" . $item['title'] . "</a>";
+                        }
+                        ?>
+                    </nav>
+                </div>
+                <div class="flex-shrink-0 flex border-t border-indigo-800 p-4">
+                    <a href="profile.php" class="flex-shrink-0 w-full group block">
+                        <div class="flex items-center">
+                            <div><img class="inline-block h-10 w-10 rounded-full object-cover" src="<?php echo htmlspecialchars(get_user_avatar($user_data['image_url'] ?? null)); ?>" alt=""></div>
+                            <div class="ml-3"><p class="text-sm font-medium text-white"><?php echo htmlspecialchars($_SESSION['fullname']); ?></p><p class="text-xs font-medium text-indigo-200 group-hover:text-white">ดูโปรไฟล์</p></div>
+                        </div>
+                    </a>
+                </div>
             </div>
             <div class="flex-shrink-0 w-14"></div>
         </div>
 
         <!-- Static sidebar for desktop -->
         <div class="hidden md:flex md:flex-shrink-0">
-            <div class="flex flex-col w-64">
+            <div class="relative flex flex-col sidebar" :class="isSidebarCollapsed ? 'w-20' : 'w-64'">
                 <div class="flex flex-col h-0 flex-1 bg-indigo-700">
                     <?php include 'sidebar_content.php'; ?>
                 </div>
@@ -105,21 +153,24 @@ if ($role === 'admin') {
         <!-- Main content -->
         <div class="flex flex-col w-0 flex-1 overflow-hidden">
             <!-- Top bar -->
-            <div class="relative z-10 flex-shrink-0 flex h-16 bg-white shadow">
-                <button type="button" class="px-4 border-r border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 md:hidden" @click="sidebarOpen = true">
+            <div class="relative z-10 flex-shrink-0 flex h-16 bg-white dark:bg-slate-800 shadow">
+                <button type="button" class="px-4 border-r border-gray-200 dark:border-slate-700 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 md:hidden" @click="sidebarOpen = true">
                     <span class="sr-only">Open sidebar</span>
-                    <i class="fa-solid fa-bars-staggered"></i>
+                    <i class="fa-solid fa-bars"></i>
                 </button>
                 <div class="flex-1 px-4 flex justify-between">
-                    <div class="flex-1 flex">
-                        <!-- Search (optional) -->
+                    <div class="flex-1 flex items-center">
+                         
                     </div>
-                    <div class="ml-4 flex items-center md:ml-6">
-                        <span class="text-gray-700 mr-3 font-medium text-sm hidden sm:block">สวัสดี, <?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
-                        <a href="profile.php" class="p-2 text-gray-400 rounded-full hover:bg-gray-100 hover:text-gray-500" title="แก้ไขโปรไฟล์">
+                    <div class="ml-4 flex items-center md:ml-6 space-x-2">
+                        <a href="profile.php" class="p-2 text-gray-500 dark:text-slate-400 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700" title="แก้ไขโปรไฟล์">
                             <i class="fa-solid fa-cog"></i>
                         </a>
-                        <a href="logout.php" class="p-2 text-gray-400 rounded-full hover:bg-gray-100 hover:text-red-500" title="ออกจากระบบ">
+                        <span class="text-gray-700 dark:text-slate-300 font-medium text-sm hidden sm:block">สวัสดี, <?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
+                        <button @click="isDarkMode = !isDarkMode" class="p-2 text-gray-500 dark:text-gray-400 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 focus:outline-none" :title="isDarkMode ? 'โหมดกลางวัน' : 'โหมดกลางคืน'">
+                           <i class="fa-solid text-lg" :class="isDarkMode ? 'fa-sun' : 'fa-moon'"></i>
+                        </button>
+                        <a href="logout.php" class="p-2 text-gray-500 dark:text-slate-400 rounded-full hover:bg-gray-100 hover:text-red-500 dark:hover:bg-slate-700" title="ออกจากระบบ">
                             <i class="fa-solid fa-right-from-bracket"></i>
                         </a>
                     </div>
@@ -130,7 +181,7 @@ if ($role === 'admin') {
                 <div class="py-6">
                     <?php if (isset($page_title) && !in_array($current_page, ['article_view.php'])): ?>
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-                        <h1 class="text-2xl font-semibold text-gray-900"><?php echo htmlspecialchars($page_title); ?></h1>
+                        <h1 class="text-2xl font-semibold text-gray-900 dark:text-slate-100"><?php echo htmlspecialchars($page_title); ?></h1>
                     </div>
                     <?php endif; ?>
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-4">

@@ -34,10 +34,11 @@ require_once 'includes/header.php';
 
         <article class="prose lg:prose-xl max-w-none mt-8 text-gray-800 leading-relaxed">
             <?php
-            // IMPORTANT: In a real-world scenario, you should use a library like HTML Purifier 
-            // to sanitize the content before displaying it to prevent XSS attacks.
-            // For this example, we'll assume the content is safe as it's from trusted authors (IT staff).
-            echo $article['content'];
+            // --- SECURITY UPDATE: Prevent XSS ---
+            // Allow a safe list of HTML tags for formatting.
+            // For the best security, consider using a library like HTML Purifier in the future.
+            $allowed_tags = '<p><b><i><u><strong><em><ul><ol><li><br><a><img><h2><h3><h4><h5><h6><blockquote>';
+            echo strip_tags($article['content'], $allowed_tags);
             ?>
         </article>
 

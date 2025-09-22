@@ -20,7 +20,7 @@ $thai_months = [
 $report_title_month_year = "ประจำเดือน " . $thai_months[$month] . " " . ($year + 543);
 
 // --- Overall Stats Query for the selected month ---
-$overall_stats_q = $conn->prepare("
+$stmt = $conn->prepare("
     SELECT
         (SELECT COUNT(id) FROM issues WHERE DATE(created_at) BETWEEN ? AND ?) as total_assigned,
         COUNT(id) as total_completed,
@@ -29,10 +29,10 @@ $overall_stats_q = $conn->prepare("
     FROM issues
     WHERE status = 'done' AND completed_at IS NOT NULL AND DATE(completed_at) BETWEEN ? AND ?
 ");
-$overall_stats_q->bind_param("ssss", $start_date, $end_date, $start_date, $end_date);
-$overall_stats_q->execute();
-$overall_stats = $overall_stats_q->get_result()->fetch_assoc();
-$overall_stats_q->close();
+$stmt->bind_param("ssss", $start_date, $end_date, $start_date, $end_date);
+$stmt->execute();
+$overall_stats = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
 // --- Main Query for Staff Performance ---
 $sql = "
@@ -60,27 +60,30 @@ $stmt->close();
 
 // --- Analytics Queries ---
 // Top 5 Problems
-$top_problems_q = $conn->prepare("SELECT title, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY title ORDER BY total DESC, title ASC LIMIT 5");
-$top_problems_q->bind_param("ss", $start_date, $end_date);
-$top_problems_q->execute();
-$top_problems_result = $top_problems_q->get_result();
+$stmt = $conn->prepare("SELECT title, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY title ORDER BY total DESC, title ASC LIMIT 5");
+$stmt->bind_param("ss", $start_date, $end_date);
+$stmt->execute();
+$top_problems_result = $stmt->get_result();
 
 // Top 5 Departments
-$top_departments_q = $conn->prepare("SELECT reporter_department, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? AND reporter_department IS NOT NULL AND reporter_department != '' GROUP BY reporter_department ORDER BY total DESC, reporter_department ASC LIMIT 5");
-$top_departments_q->bind_param("ss", $start_date, $end_date);
-$top_departments_q->execute();
-$top_departments_result = $top_departments_q->get_result();
+$stmt = $conn->prepare("SELECT reporter_department, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? AND reporter_department IS NOT NULL AND reporter_department != '' GROUP BY reporter_department ORDER BY total DESC, reporter_department ASC LIMIT 5");
+$stmt->bind_param("ss", $start_date, $end_date);
+$stmt->execute();
+$top_departments_result = $stmt->get_result();
 
 // Monthly Trend (Last 6 months)
-$trend_q = $conn->query("SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(id) as total FROM issues WHERE created_at >= DATE_SUB('$start_date', INTERVAL 5 MONTH) GROUP BY month ORDER BY month ASC");
+$stmt = $conn->prepare("SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(id) as total FROM issues WHERE created_at >= DATE_SUB(?, INTERVAL 5 MONTH) GROUP BY month ORDER BY month ASC");
+$stmt->bind_param("s", $start_date);
+$stmt->execute();
+$trend_q = $stmt->get_result();
 $trend_data = [];
 while($row = $trend_q->fetch_assoc()){ $trend_data[] = $row; }
 
 // Urgency Breakdown
-$urgency_q = $conn->prepare("SELECT urgency, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY urgency");
-$urgency_q->bind_param("ss", $start_date, $end_date);
-$urgency_q->execute();
-$urgency_result = $urgency_q->get_result();
+$stmt = $conn->prepare("SELECT urgency, COUNT(id) as total FROM issues WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY urgency");
+$stmt->bind_param("ss", $start_date, $end_date);
+$stmt->execute();
+$urgency_result = $stmt->get_result();
 $urgency_data = [];
 while($row = $urgency_result->fetch_assoc()){ $urgency_data[] = $row; }
 
@@ -205,4 +208,3 @@ document.addEventListener('DOMContentLoaded', function () {
 $conn->close();
 require_once 'includes/footer.php';
 ?>
-

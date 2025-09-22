@@ -13,13 +13,15 @@ if ($current_page < 1) {
 $offset = ($current_page - 1) * $items_per_page;
 
 $search_term = trim($_GET['search'] ?? '');
-$search_query = "%" . $search_term . "%";
 
+// --- Build SQL Query Securely using Prepared Statements ---
 $sql_conditions = "";
 $params = [];
 $types = "";
 
+// SECURITY: Add search condition with placeholders to prevent SQL Injection
 if (!empty($search_term)) {
+    $search_query = "%" . $search_term . "%";
     $sql_conditions = " WHERE (fullname LIKE ? OR email LIKE ? OR position LIKE ? OR department LIKE ?)";
     $params = [$search_query, $search_query, $search_query, $search_query];
     $types = "ssss";
@@ -156,6 +158,7 @@ $busiest_ids = getBusiestITStaffIds($conn);
 </div>
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <?php
+$stmt->close();
 $conn->close();
 require_once 'includes/footer.php'; 
 ?>
