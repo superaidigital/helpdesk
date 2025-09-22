@@ -1,5 +1,5 @@
 <?php
-$page_title = "รายงานผลการปฏิบัติงานของฉัน";
+// $page_title = "รายงานผลการปฏิบัติงานของฉัน";
 require_once 'includes/functions.php';
 check_auth(['it']); 
 require_once 'includes/header.php'; 
@@ -83,8 +83,8 @@ $urgency_values_json = json_encode(array_values($urgency_data));
     <!-- Header and Filters -->
     <div class="flex flex-col sm:flex-row justify-between items-start mb-4 gap-4">
         <div>
-            <h2 class="text-2xl font-bold text-gray-800"><?php echo htmlspecialchars($page_title); ?></h2>
-            <p class="text-gray-500">สรุปผลการปฏิบัติงานของคุณ <?php echo $report_title_month_year; ?></p>
+            <!-- <h2 class="text-2xl font-bold text-gray-800"><?php echo htmlspecialchars($page_title); ?></h2> -->
+            <h2 class="text-2xl font-bold text-gray-800">สรุปผลการปฏิบัติงานของคุณ <?php echo $report_title_month_year; ?></h2>
         </div>
         <div class="flex items-center gap-4 bg-white p-2 rounded-lg shadow-sm">
             <form method="GET" action="it_report.php" class="flex items-center gap-2">

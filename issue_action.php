@@ -45,9 +45,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($issue_id === 0) {
         redirect_with_message('it_dashboard.php', 'error', 'Invalid Issue ID');
     }
+
+    // --- **NEW**: Fetch issue details for validation ---
+    $stmt_check = $conn->prepare("SELECT assigned_to, status FROM issues WHERE id = ?");
+    $stmt_check->bind_param("i", $issue_id);
+    $stmt_check->execute();
+    $issue_to_validate = $stmt_check->get_result()->fetch_assoc();
+    $stmt_check->close();
+
+    if (!$issue_to_validate) {
+        redirect_with_message('it_dashboard.php', 'error', 'ไม่พบปัญหาที่ต้องการดำเนินการ');
+    }
+
+    // --- **NEW**: Define Permissions based on fetched data ---
+    $is_admin = $_SESSION['role'] === 'admin';
+    $is_assigned_it = $issue_to_validate['assigned_to'] !== null && $_SESSION['user_id'] === (int)$issue_to_validate['assigned_to'];
+    $is_job_open = $issue_to_validate['status'] !== 'done';
+
+    $can_perform_actions = $is_assigned_it && $is_job_open;
+    $can_edit_reporter = ($is_assigned_it || $is_admin) && $is_job_open;
     
     // --- Action: แก้ไขข้อมูลผู้แจ้ง ---
-    if ($action === 'edit_reporter') {
+    if ($action === 'edit_reporter' && $can_edit_reporter) {
         $reporter_name = trim($_POST['reporter_name'] ?? '');
         $reporter_contact = trim($_POST['reporter_contact'] ?? '');
         $reporter_position = trim($_POST['reporter_position'] ?? '');
@@ -63,10 +82,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             redirect_with_message("issue_view.php?id=$issue_id", 'error', 'ข้อมูลไม่ถูกต้อง ไม่สามารถอัปเดตได้');
         }
+    } elseif ($action === 'edit_reporter') {
+        redirect_with_message("issue_view.php?id=$issue_id", 'error', 'คุณไม่มีสิทธิ์แก้ไขข้อมูลนี้ หรือเรื่องถูกปิดไปแล้ว');
     }
     
     // --- Action: อัปเดตสถานะและเพิ่มความคิดเห็น ---
-    if (isset($_POST['submit_update'])) {
+    if (isset($_POST['submit_update']) && $can_perform_actions) {
         $new_status = $_POST['status'];
         $comment_text = trim($_POST['comment_text']);
         $attachment_link = trim($_POST['attachment_link']);
@@ -125,10 +146,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         redirect_with_message("issue_view.php?id=$issue_id", 'success', 'อัปเดตข้อมูลเรียบร้อยแล้ว');
+    } elseif (isset($_POST['submit_update'])) {
+        redirect_with_message("issue_view.php?id=$issue_id", 'error', 'คุณไม่มีสิทธิ์ดำเนินการ หรือเรื่องถูกปิดไปแล้ว');
     }
 
     // --- Action: ส่งต่องาน ---
-    if (isset($_POST['submit_forward'])) {
+    if (isset($_POST['submit_forward']) && $can_perform_actions) {
         $forward_to_id = (int)$_POST['forward_to_user_id'];
         $forward_to_user = getUserById($forward_to_id, $conn);
         
@@ -144,10 +167,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             redirect_with_message('it_dashboard.php', 'success', 'ส่งต่องานเรียบร้อยแล้ว');
         }
+    } elseif (isset($_POST['submit_forward'])) {
+        redirect_with_message("issue_view.php?id=$issue_id", 'error', 'คุณไม่มีสิทธิ์ส่งต่องาน หรือเรื่องถูกปิดไปแล้ว');
     }
 
     // --- Action: เก็บเป็น Knowledge Base ---
-    if (isset($_POST['submit_kb'])) {
+    if (isset($_POST['submit_kb']) && $can_perform_actions) {
         $solution_text = trim($_POST['comment_text']);
 
         if (empty($solution_text)) {
@@ -157,8 +182,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $issue_stmt = $conn->prepare("SELECT title, category FROM issues WHERE id = ?");
         $issue_stmt->bind_param("i", $issue_id);
         $issue_stmt->execute();
-        $issue_result = $issue_stmt->get_result();
-        $issue_details = $issue_result->fetch_assoc();
+        $issue_details = $issue_stmt->get_result()->fetch_assoc();
         $issue_stmt->close();
 
         if ($issue_details) {
@@ -169,9 +193,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             redirect_with_message("issue_view.php?id=$issue_id", 'success', 'บันทึกวิธีแก้ไขลงในฐานความรู้เรียบร้อยแล้ว');
         }
+    } elseif (isset($_POST['submit_kb'])) {
+        redirect_with_message("issue_view.php?id=$issue_id", 'error', 'คุณไม่มีสิทธิ์ดำเนินการ หรือเรื่องถูกปิดไปแล้ว');
     }
 }
 
 // Fallback redirect
-redirect_with_message('it_dashboard.php', 'error', 'การกระทำไม่ถูกต้อง');
+// header("Location: it_dashboard.php");
+// exit();
 ?>
+

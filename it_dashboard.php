@@ -1,5 +1,5 @@
 <?php
-$page_title = "รายการปัญหาทั้งหมด";
+// $page_title = "รายการปัญหาทั้งหมด";
 require_once 'includes/functions.php';
 
 // ตรวจสอบสิทธิ์: อนุญาตให้เฉพาะ 'it' และ 'admin' เข้าถึงหน้านี้
@@ -24,6 +24,14 @@ $types = "";
 if ($view === 'done') {
     $page_title = "รายการปัญหาที่เสร็จสิ้น";
     $sql_conditions[] = "status = 'done'";
+    // --- START: MODIFICATION ---
+    // ถ้าผู้ใช้เป็น 'it', ให้แสดงเฉพาะงานของตัวเอง
+    if ($_SESSION['role'] === 'it') {
+        $sql_conditions[] = "assigned_to = ?";
+        $params[] = $_SESSION['user_id'];
+        $types .= "i";
+    }
+    // --- END: MODIFICATION ---
 } else {
     $page_title = "รายการปัญหา (ที่ยังไม่เสร็จสิ้น)";
     $sql_conditions[] = "status != 'done'";

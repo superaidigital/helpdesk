@@ -1,6 +1,6 @@
 <?php
 // submit_issue.php
-require_once 'includes/functions.php'; // เปลี่ยนมาเรียกใช้ functions.php
+require_once 'includes/functions.php'; // This starts session
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
@@ -13,10 +13,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $urgency = trim($_POST['urgency'] ?? 'ปกติ');
+    $user_id = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null; // Get user ID if logged in
 
     // 2. บันทึกข้อมูลหลักของปัญหาลงในตาราง `issues`
-    $stmt = $conn->prepare("INSERT INTO issues (reporter_name, reporter_contact, reporter_position, reporter_department, category, title, description, urgency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssssss", $reporter_name, $reporter_contact, $reporter_position, $reporter_department, $category, $title, $description, $urgency);
+    $stmt = $conn->prepare("INSERT INTO issues (user_id, reporter_name, reporter_contact, reporter_position, reporter_department, category, title, description, urgency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("issssssss", $user_id, $reporter_name, $reporter_contact, $reporter_position, $reporter_department, $category, $title, $description, $urgency);
     
     if ($stmt->execute()) {
         $issue_id = $conn->insert_id; // ดึง ID ของเรื่องที่เพิ่งสร้าง
@@ -49,7 +50,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         // 4. ส่งอีเมลแจ้งเตือนเจ้าหน้าที่
-        $it_notification_email = "it.support@example.com"; // <-- TODO: เปลี่ยนเป็นอีเมลกลางของ IT
+        $it_notification_email = "it.support@example.com"; // <-- TODO: This should be configured in a central place
         $email_subject = "[Helpdesk] มีเรื่องแจ้งใหม่ #" . $issue_id . ": " . $title;
         $email_body = "<h2>มีเรื่องแจ้งใหม่ในระบบ Helpdesk</h2>"
                     . "<p><strong>หมายเลข:</strong> #$issue_id</p>"
@@ -58,7 +59,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     . "<p><strong>หมวดหมู่:</strong> " . htmlspecialchars($category) . "</p>"
                     . "<p>กรุณาเข้าระบบเพื่อตรวจสอบและรับงาน</p>";
         
-        // send_email($it_notification_email, $email_subject, $email_body); // Deactivated until configured
+        // send_email($it_notification_email, $email_subject, $email_body);
         
         // 5. ส่งต่อไปยังหน้าขอบคุณ
         header("Location: public_thankyou.php?id=" . $issue_id);
@@ -66,9 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     } else {
         // กรณีเกิดข้อผิดพลาดในการบันทึกข้อมูลหลัก
-        // For production, you might want to log this error instead of echoing
         error_log("Submit Issue Error: " . $stmt->error);
-        // Redirect to a generic error page or back to the form with an error message
         redirect_with_message('public_form.php', 'error', 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง');
     }
 

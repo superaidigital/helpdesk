@@ -33,10 +33,11 @@ if (!$issue) {
 // Fetch latest comment and checklist data
 $latest_comment = getLatestITComment($issue['id'], $issue['assigned_to'], $conn);
 $checklist_data = getIssueChecklistItems($issue_id, $conn);
-// Dynamically get the checklist based on the issue's category
-$checklist_items_for_category = get_checklist_by_category($issue['category']);
+// [IMPROVEMENT] Get the correct checklist based on the issue's category
+$checklist_items_for_display = get_checklist_by_category($issue['category']);
 
-// Fetch all active categories from the database for the checklist
+
+// Fetch all active categories from the database for the category selection section
 $all_categories_result = $conn->query("SELECT name FROM categories WHERE is_active = 1 ORDER BY id ASC");
 $all_categories = [];
 if ($all_categories_result) {
@@ -48,8 +49,16 @@ if ($all_categories_result) {
 
 $thai_date = formatDate($issue['created_at']);
 list($date_part, $time_part) = explode(',', $thai_date);
-$time_part = str_replace('น.', '', $time_part);
-$completed_time_str = $issue['completed_at'] ? formatDate($issue['completed_at']) : '-';
+$time_part_cleaned = str_replace('น.', '', $time_part);
+
+// Get completed time, if available
+$completed_time_str = '-';
+if ($issue['completed_at']) {
+    $completed_thai_date = formatDate($issue['completed_at']);
+    list(, $completed_time_part) = explode(',', $completed_thai_date);
+    $completed_time_str = trim(str_replace('น.', '', $completed_time_part));
+}
+
 
 // Determine reporter's division
 $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : ($issue['division'] ?? '');
@@ -85,10 +94,10 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
 
     <div class="no-print text-center my-4 space-x-2">
         <a href="issue_view.php?id=<?php echo $issue['id']; ?>" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
-            <i class="fa-solid fa-arrow-left mr-2"></i>กลับ
+            <i class="fa-solid fa-arrow-left mr-2"></i>กลับหน้ารายละเอียด
         </a>
         <button onclick="window.print()" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">
-            <i class="fa-solid fa-print mr-2"></i>พิมพ์
+            <i class="fa-solid fa-print mr-2"></i>พิมพ์ใบงาน
         </button>
     </div>
 
@@ -113,7 +122,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
                 <div class="flex space-x-4">
                     <div class="field"><span class="field-label">เลขที่:</span> <span class="field-value"><?php echo $issue['id']; ?></span></div>
                     <div class="field"><span class="field-label">วันที่:</span> <span class="field-value"><?php echo trim($date_part); ?></span></div>
-                    <div class="field"><span class="field-label">เวลา:</span> <span class="field-value"><?php echo trim($time_part); ?></span></div>
+                    <div class="field"><span class="field-label">เวลา:</span> <span class="field-value"><?php echo trim($time_part_cleaned); ?></span></div>
                 </div>
             </div>
             <p class="form-subtitle">บันทึกการแจ้งปัญหา/ขอคำปรึกษา ด้าน IT</p>
@@ -132,7 +141,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
              </div>
 
              <div class="mt-4">
-                <p class="font-bold">หมวดหมู่รายการแจ้งปัญหา/ขอคำปรึกษา ด้าน IT</p>
+                <p class="font-bold">หมวดหมู่รายการแจ้งปัญหา/ขอคำปรึกษา ด้าน IT </p>
                 <div class="grid grid-cols-2 gap-x-4 text-sm mt-1">
                     <?php foreach ($all_categories as $cat_name): ?>
                         <div>
@@ -147,17 +156,19 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
         </div>
 
         <div class="form-section mt-4">
-            <p class="form-title">ส่วนที่ 2 สำหรับเจ้าหน้าที่</p>
+            <p class="form-title">ส่วนที่ ๒ สำหรับเจ้าหน้าที่</p>
             <p class="form-subtitle">บันทึกการตรวจสอบและแก้ไข</p>
             <div class="grid grid-cols-2 gap-x-6 mt-2">
-                <div class="field"><span class="field-label">เวลาเริ่มดำเนินการ:</span> <span class="field-value"><?php echo trim($time_part); ?></span></div>
+                <div class="field"><span class="field-label">เวลาเริ่มดำเนินการ:</span> <span class="field-value"><?php echo trim($time_part_cleaned); ?></span></div>
                 <div class="field"><span class="field-label">เวลาแล้วเสร็จ:</span> <span class="field-value"><?php echo $completed_time_str; ?></span></div>
             </div>
             
+            <!-- Checklist Section -->
+            <?php if ($issue['category'] !== 'อื่นๆ'): ?>
             <div class="mt-4">
                 <p class="font-bold">รายการตรวจสอบและแก้ไข:</p>
                 <div class="grid grid-cols-2 gap-x-4 text-sm mt-1">
-                    <?php foreach($checklist_items_for_category as $item): 
+                    <?php foreach($checklist_items_for_display as $item): 
                         $is_checked = isset($checklist_data[$item]) && $checklist_data[$item]['checked'];
                         $item_value = isset($checklist_data[$item]) ? $checklist_data[$item]['value'] : '';
                     ?>
@@ -171,6 +182,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
                     <?php endforeach; ?>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="mt-4 space-y-2">
                 <p><span class="checkbox"><?php echo $issue['status'] === 'done' ? '☑' : '☐'; ?></span> ดำเนินการแล้วเสร็จ สามารถใช้งานได้ปกติ</p>
@@ -183,16 +195,15 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
             </div>
             <div class="mt-6 flex justify-end">
                 <div class="w-2/5 text-center">
-                    <p class="min-h-[1rem]">(............................................)</p>
+                    <p>ลงชื่อ............................................</p>
                     <p class="mt-1">(<?php echo htmlspecialchars($issue['assigned_to_name'] ?? '............................................'); ?>)</p>
-                    <p class="text-sm mt-1"><?php echo htmlspecialchars($issue['assigned_to_position'] ?? '............................................'); ?></p>
                     <p class="text-sm">เจ้าหน้าที่ผู้ดำเนินการ</p>
                 </div>
             </div>
         </div>
 
         <div class="form-section mt-4">
-            <p class="form-title">ส่วนที่ 3 สำหรับผู้รับบริการ</p>
+            <p class="form-title">ส่วนที่ ๓ สำหรับผู้รับบริการ</p>
             <p class="form-subtitle">แบบสำรวจความพึงพอใจ</p>
             <div class="mt-2">
                 <p class="font-bold">ความพึงพอใจในการรับบริการจากเจ้าหน้าที่</p>
@@ -204,26 +215,23 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_division'] ?? '') : (
                 </div>
             </div>
              <div class="field items-start mt-2"><span class="field-label">ข้อเสนอแนะ:</span><div class="field-value min-h-[2rem]"></div></div>
-            <div class="flex justify-between mt-10">
-                 <div class="w-2/5 text-center">
-                    <div class="min-h-[3rem] flex items-center justify-center">
-                        <?php if (!empty($issue['signature_image']) && file_exists($issue['signature_image'])): ?>
-                            <img src="<?php echo htmlspecialchars($issue['signature_image']); ?>" alt="ลายมือชื่อผู้รับบริการ" class="max-h-16">
-                        <?php else: ?>
-                            <p>ลงชื่อ............................................</p>
-                        <?php endif; ?>
-                    </div>
+            <div class="grid grid-cols-2 gap-x-8 mt-10">
+                 <div class="text-center">
+                    <?php if (!empty($issue['signature_image'])): ?>
+                        <img src="<?php echo htmlspecialchars($issue['signature_image']); ?>" alt="Signature" class="h-16 mx-auto">
+                    <?php else: ?>
+                        <p>ลงชื่อ............................................</p>
+                    <?php endif; ?>
                     <p class="mt-1">(<?php echo htmlspecialchars($issue['reporter_name']); ?>)</p>
                     <p class="text-sm">ผู้รับบริการ</p>
                 </div>
-                <div class="w-2/5 text-center">
-                    <p class="min-h-[2rem]">ลงชื่อ............................................</p>
+                <div class="text-center">
+                     <p>ลงชื่อ............................................</p>
                     <p class="mt-1">(............................................)</p>
-                    <p class="text-sm">หัวหน้า<?php echo htmlspecialchars($issue['assigned_to_division'] ? 'ฝ่าย' . $issue['assigned_to_division'] : 'ฝ่าย......................'); ?></p>
+                    <p class="text-sm">หัวหน้าฝ่ายสถิติข้อมูลและสารสนเทศ</p>
                 </div>
             </div>
         </div>
     </div>
 </body>
 </html>
-

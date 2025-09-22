@@ -7,9 +7,9 @@ header('Content-Type: application/json');
 
 // Wrap the entire script in a try-catch block for robust error handling
 try {
-    // Check for user permission
+    // Check for user permission (basic login check)
     if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['it', 'admin'])) {
-        throw new Exception('Permission denied');
+        throw new Exception('Permission denied: Not logged in as IT/Admin.');
     }
 
     // Decode incoming JSON data
@@ -27,8 +27,25 @@ try {
         throw new Exception('Invalid or empty data provided.');
     }
 
+    // --- **NEW**: Detailed Permission Check ---
+    $stmt_check_perm = $conn->prepare("SELECT assigned_to, status FROM issues WHERE id = ?");
+    $stmt_check_perm->bind_param("i", $issue_id);
+    $stmt_check_perm->execute();
+    $issue_to_validate = $stmt_check_perm->get_result()->fetch_assoc();
+    $stmt_check_perm->close();
+
+    if (!$issue_to_validate) {
+        throw new Exception('Issue not found.');
+    }
+
+    $is_assigned_it = $current_user_id === (int)$issue_to_validate['assigned_to'];
+    $is_job_open = $issue_to_validate['status'] !== 'done';
+    
+    if (!$is_assigned_it || !$is_job_open) {
+        throw new Exception('Permission denied: You are not assigned to this issue or it is already closed.');
+    }
+
     // --- Database Transaction ---
-    // Use a transaction to ensure all updates succeed or none do.
     $conn->autocommit(FALSE);
     if (!$conn->begin_transaction()) {
         throw new Exception('Failed to start database transaction.');
@@ -43,13 +60,11 @@ try {
         $is_checked = !empty($item['checked']) ? 1 : 0;
         $item_value = $item['value'] ?? null;
 
-        // Check if the item already exists for this issue
         $stmt_check->bind_param("is", $issue_id, $description);
         $stmt_check->execute();
         $result = $stmt_check->get_result();
         
         if ($result->num_rows > 0) {
-            // Update existing item
             $row = $result->fetch_assoc();
             $checklist_id = $row['id'];
             $stmt_update->bind_param("isii", $is_checked, $item_value, $current_user_id, $checklist_id);
@@ -57,7 +72,6 @@ try {
                 throw new Exception("Failed to update item: " . $description . " - " . $stmt_update->error);
             }
         } else {
-            // Insert new item
             $stmt_insert->bind_param("isisi", $issue_id, $description, $is_checked, $item_value, $current_user_id);
             if (!$stmt_insert->execute()) {
                 throw new Exception("Failed to insert item: " . $description . " - " . $stmt_insert->error);
@@ -65,38 +79,27 @@ try {
         }
     }
     
-    // Close prepared statements
     $stmt_check->close();
     $stmt_update->close();
     $stmt_insert->close();
 
-    // If all queries were successful, commit the transaction
     if (!$conn->commit()) {
         throw new Exception('Failed to commit transaction.');
     }
 
-    // Send a success response
     echo json_encode(['success' => true]);
 
 } catch (Exception $e) {
-    // An error occurred, rollback the transaction if active
     if ($conn->ping() && $conn->autocommit) {
          $conn->rollback();
     }
-   
-    // Log the error (optional but recommended for production)
     error_log("Checklist Action Error: " . $e->getMessage());
-
-    // Send a JSON error response
-    http_response_code(500); // Internal Server Error
-    echo json_encode(['success' => false, 'message' => 'PHP Fatal Error: ' . $e->getMessage()]);
+    http_response_code(403); // Forbidden
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 
 } finally {
-    // Always restore autocommit mode
     if (isset($conn) && $conn->ping()) {
         $conn->autocommit(TRUE);
     }
-    // The connection will be closed by the calling script's footer
 }
 ?>
-

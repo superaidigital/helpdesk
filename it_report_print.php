@@ -151,7 +151,7 @@ $trend_labels_json = json_encode($trend_labels); $trend_assigned_json = json_enc
         <header class="text-center mb-4">
             <h1 class="text-xl font-bold">รายงานสรุปผลการปฏิบัติงาน</h1>
             <h2 class="text-lg">การให้บริการแจ้งปัญหาและให้คำปรึกษาด้าน IT</h2>
-            <p><?php echo $report_title_month_year; ?></p>
+            <p class="text-lg"><?php echo $report_title_month_year; ?></p>
         </header>
         <div class="space-y-4">
             <!-- Stats -->
@@ -177,47 +177,49 @@ $trend_labels_json = json_encode($trend_labels); $trend_assigned_json = json_enc
                         <div class="h-40"><canvas id="printUrgencyChart"></canvas></div>
                     </div>
                 </div>
-
-                <div class="grid grid-cols-2 gap-6 print-cols-1 print-gap-4">
-                     <div class="border p-4 rounded-lg"> <h3 class="text-base font-semibold text-center mb-2">5 อันดับปัญหาที่พบบ่อย</h3> <ul class="space-y-1 text-xs"> <?php mysqli_data_seek($top_problems_result, 0); while($row = $top_problems_result->fetch_assoc()): ?> <li class="flex justify-between border-b pb-1"><span><?php echo htmlspecialchars($row['title']); ?></span> <span class="font-bold"><?php echo $row['total']; ?> ครั้ง</span></li> <?php endwhile; ?> </ul> </div>
-                     <div class="border p-4 rounded-lg"> <h3 class="text-base font-semibold text-center mb-2">5 อันดับกองที่ใช้บริการสูงสุด</h3> <ul class="space-y-1 text-xs"> <?php mysqli_data_seek($top_departments_result, 0); while($row = $top_departments_result->fetch_assoc()): ?> <li class="flex justify-between border-b pb-1"><span><?php echo htmlspecialchars($row['reporter_department']); ?></span> <span class="font-bold"><?php echo $row['total']; ?> ครั้ง</span></li> <?php endwhile; ?> </ul> </div>
-                </div>
             </div>
         </div>
     </div>
     
-    <!-- Page 2: Detailed List -->
+    <!-- Page 2: Detailed List & Analytics -->
     <div class="a4-page page-break">
-        <div class="border p-4 rounded-lg">
-            <h3 class="text-lg font-semibold text-center mb-2">รายการให้บริการแจ้งปัญหาและให้คำปรึกษาด้าน IT ทั้งหมดในเดือนนี้</h3>
-             <table class="min-w-full text-xs border-collapse border border-slate-400">
-                <thead class="bg-gray-100">
-                    <tr>
-                        <th class="border border-slate-300 p-1 text-center">ลำดับ</th>
-                        <th class="border border-slate-300 p-1 text-center">วันที่แจ้ง</th>
-                        <th class="border border-slate-300 p-1 text-center">หัวข้อ</th>
-                        <th class="border border-slate-300 p-1 text-center">ผู้แจ้ง</th>
-                        <th class="border border-slate-300 p-1 text-center">สถานะ</th>
-                        <th class="border border-slate-300 p-1 text-center">วันที่เสร็จสิ้น</th>
-                        <th class="border border-slate-300 p-1 text-center">ใช้เวลาแก้ไข</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (count($all_issues_for_month) > 0): $counter = 1; foreach($all_issues_for_month as $issue): ?>
-                    <tr class="border-b">
-                        <td class="border border-slate-300 p-1 text-center"><?php echo $counter++; ?></td>
-                        <td class="border border-slate-300 p-1"><?php echo date('d/m/', strtotime($issue['created_at'])) . (date('Y', strtotime($issue['created_at'])) + 543); ?></td>
-                        <td class="border border-slate-300 p-1"><?php echo htmlspecialchars($issue['title']); ?></td>
-                        <td class="border border-slate-300 p-1"><?php echo htmlspecialchars($issue['reporter_name']); ?></td>
-                        <td class="border border-slate-300 p-1"><?php echo $status_text_map[$issue['status']] ?? htmlspecialchars($issue['status']); ?></td>
-                        <td class="border border-slate-300 p-1"><?php echo $issue['completed_at'] ? (date('d/m/', strtotime($issue['completed_at'])) . (date('Y', strtotime($issue['completed_at'])) + 543)) : '-'; ?></td>
-                        <td class="border border-slate-300 p-1"><?php echo formatDuration($issue['resolution_minutes']); ?></td>
-                    </tr>
-                    <?php endforeach; else: ?>
-                    <tr><td colspan="7" class="text-center py-5 border border-slate-300">ไม่พบข้อมูลงานในเดือนที่เลือก</td></tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-6 print-cols-1 print-gap-4">
+                 <div class="border p-4 rounded-lg"> <h3 class="text-base font-semibold text-center mb-2">5 อันดับปัญหาที่พบบ่อย</h3> <ul class="space-y-1 text-xs"> <?php mysqli_data_seek($top_problems_result, 0); while($row = $top_problems_result->fetch_assoc()): ?> <li class="flex justify-between border-b pb-1"><span><?php echo htmlspecialchars($row['title']); ?></span> <span class="font-bold"><?php echo $row['total']; ?> ครั้ง</span></li> <?php endwhile; ?> </ul> </div>
+                 <div class="border p-4 rounded-lg"> <h3 class="text-base font-semibold text-center mb-2">5 อันดับกองที่ใช้บริการสูงสุด</h3> <ul class="space-y-1 text-xs"> <?php mysqli_data_seek($top_departments_result, 0); while($row = $top_departments_result->fetch_assoc()): ?> <li class="flex justify-between border-b pb-1"><span><?php echo htmlspecialchars($row['reporter_department']); ?></span> <span class="font-bold"><?php echo $row['total']; ?> ครั้ง</span></li> <?php endwhile; ?> </ul> </div>
+            </div>
+
+            <div class="border p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-center mb-2">รายการให้บริการแจ้งปัญหาและให้คำปรึกษาด้าน IT ทั้งหมดในเดือนนี้</h3>
+                 <table class="min-w-full text-xs border-collapse border border-slate-400">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="border border-slate-300 p-1 text-center">ลำดับ</th>
+                            <th class="border border-slate-300 p-1 text-center">วันที่แจ้ง</th>
+                            <th class="border border-slate-300 p-1 text-center">หัวข้อ</th>
+                            <th class="border border-slate-300 p-1 text-center">ผู้แจ้ง</th>
+                            <th class="border border-slate-300 p-1 text-center">สถานะ</th>
+                            <th class="border border-slate-300 p-1 text-center">วันที่เสร็จสิ้น</th>
+                            <th class="border border-slate-300 p-1 text-center">ใช้เวลาแก้ไข</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (count($all_issues_for_month) > 0): $counter = 1; foreach($all_issues_for_month as $issue): ?>
+                        <tr class="border-b">
+                            <td class="border border-slate-300 p-1 text-center"><?php echo $counter++; ?></td>
+                            <td class="border border-slate-300 p-1"><?php echo date('d/m/', strtotime($issue['created_at'])) . (date('Y', strtotime($issue['created_at'])) + 543); ?></td>
+                            <td class="border border-slate-300 p-1"><?php echo htmlspecialchars($issue['title']); ?></td>
+                            <td class="border border-slate-300 p-1"><?php echo htmlspecialchars($issue['reporter_name']); ?></td>
+                            <td class="border border-slate-300 p-1"><?php echo $status_text_map[$issue['status']] ?? htmlspecialchars($issue['status']); ?></td>
+                            <td class="border border-slate-300 p-1"><?php echo $issue['completed_at'] ? (date('d/m/', strtotime($issue['completed_at'])) . (date('Y', strtotime($issue['completed_at'])) + 543)) : '-'; ?></td>
+                            <td class="border border-slate-300 p-1"><?php echo formatDuration($issue['resolution_minutes']); ?></td>
+                        </tr>
+                        <?php endforeach; else: ?>
+                        <tr><td colspan="7" class="text-center py-5 border border-slate-300">ไม่พบข้อมูลงานในเดือนที่เลือก</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -237,7 +239,11 @@ $trend_labels_json = json_encode($trend_labels); $trend_assigned_json = json_enc
             <!-- Work Order HTML Content -->
              <header class="text-center relative mb-4"> <div class="absolute left-0 top-0"> <img src="assets/images/LogoSSKPao.png" alt="Logo" class="h-16 w-16"> </div> <h1 class="text-lg font-bold pt-2">แบบฟอร์มให้บริการ</h1> <p class="text-base">ฝ่าย <?php echo htmlspecialchars($issue['assigned_to_division'] ?: '......................'); ?> สังกัด <?php echo htmlspecialchars($issue['assigned_to_department'] ?: '......................'); ?> </p> </header> 
              <div class="form-section"> <div class="flex justify-between items-center"><p class="form-title">ส่วนที่ 1 สำหรับผู้แจ้ง</p><div class="flex space-x-4"><div class="field"><span class="field-label">เลขที่:</span> <span class="field-value"><?php echo $issue['id']; ?></span></div><div class="field"><span class="field-label">วันที่:</span> <span class="field-value"><?php echo trim($date_part ?? ''); ?></span></div><div class="field"><span class="field-label">เวลา:</span> <span class="field-value"><?php echo trim($time_part ?? ''); ?></span></div></div></div> <p class="form-subtitle">บันทึกการแจ้งปัญหา/ขอคำปรึกษา ด้าน IT</p> <div class="field mt-4"><span class="field-label">ชื่อ-นามสกุล:</span> <span class="field-value"><?php echo htmlspecialchars($issue['reporter_name']); ?></span></div> <div class="grid grid-cols-2 gap-x-6"><div class="field"><span class="field-label">สำนัก/กอง:</span> <span class="field-value"><?php echo htmlspecialchars($issue['reporter_department']); ?></span></div><div class="field"><span class="field-label">ฝ่าย/งาน:</span> <span class="field-value"><?php echo htmlspecialchars($reporter_division); ?></span></div></div> <div class="grid grid-cols-2 gap-x-6"><div class="field"><span class="field-label">โทร:</span> <span class="field-value"><?php echo htmlspecialchars($issue['reporter_contact']); ?></span></div><div class="field"><span class="field-label">ประเภทเครื่อง:</span> <span class="field-value"></span></div></div> <div class="field items-start mt-2"><span class="field-label">สาเหตุ/ปัญหา:</span><div class="field-value min-h-[3rem]"><?php echo nl2br(htmlspecialchars($issue['description'])); ?></div></div> <div class="mt-4"><p class="font-bold">หมวดหมู่รายการแจ้งปัญหา/ขอคำปรึกษา ด้าน IT</p><div class="grid grid-cols-2 gap-x-4 text-sm mt-1"><?php foreach ($all_categories as $cat_name): ?><div><span class="checkbox"><?php echo ($issue['category'] === $cat_name) ? '☑' : '☐'; ?></span><?php echo htmlspecialchars($cat_name); ?></div><?php endforeach; ?></div></div> </div>
-             <div class="form-section mt-4"> <p class="form-title">ส่วนที่ 2 สำหรับเจ้าหน้าที่</p> <p class="form-subtitle">บันทึกการตรวจสอบและแก้ไข</p> <div class="grid grid-cols-2 gap-x-6 mt-2"><div class="field"><span class="field-label">เวลาเริ่มดำเนินการ:</span> <span class="field-value"><?php echo trim($time_part ?? ''); ?></span></div><div class="field"><span class="field-label">เวลาแล้วเสร็จ:</span> <span class="field-value"><?php echo $completed_time_str; ?></span></div></div> <div class="mt-4"><p class="font-bold">รายการตรวจสอบและแก้ไข:</p><div class="grid grid-cols-2 gap-x-4 text-sm mt-1"><?php foreach($checklist_items_for_category as $item): $is_checked = isset($checklist_data[$item]) && $checklist_data[$item]['checked']; $item_value = isset($checklist_data[$item]) ? $checklist_data[$item]['value'] : '';?><div><span class="checkbox"><?php echo $is_checked ? '☑' : '☐'; ?></span><span><?php echo htmlspecialchars($item); ?></span><?php if ($item === 'อื่นๆ' && $is_checked && !empty($item_value)): ?><span class="ml-2 text-indigo-600">(<?php echo htmlspecialchars($item_value); ?>)</span><?php endif; ?></div><?php endforeach; ?></div></div> <div class="mt-4 space-y-2"><p><span class="checkbox"><?php echo $issue['status'] === 'done' ? '☑' : '☐'; ?></span> ดำเนินการแล้วเสร็จ สามารถใช้งานได้ปกติ</p><div class="field items-start ml-8"><span class="field-label">รายละเอียดการแก้ไขเพิ่มเติม:</span><div class="field-value min-h-[4rem]"><?php echo nl2br(htmlspecialchars($latest_comment ?? '')); ?></div></div><p><span class="checkbox"><?php echo $issue['status'] === 'awaiting_parts' ? '☑' : '☐'; ?></span> ขอให้หน่วยงาน สั่งซื้ออุปกรณ์เพื่อใช้ในการซ่อม</p><p><span class="checkbox"><?php echo $issue['status'] === 'cannot_resolve' ? '☑' : '☐'; ?></span> ไม่สามารถดำเนินการเองได้ / ให้ดำเนินการส่งซ่อม</p></div> <div class="mt-6 flex justify-end"><div class="w-2/5 text-center"><p class="min-h-[1rem]">............................................</p><p class="text-sm mt-1"><?php echo htmlspecialchars($issue['assigned_to_position'] ?? '............................................'); ?></p><p class="mt-1">(<?php echo htmlspecialchars($issue['assigned_to_name'] ?? '............................................'); ?>)</p><p class="text-sm">เจ้าหน้าที่ผู้ดำเนินการ</p></div></div> </div>
+             <div class="form-section mt-4"> <p class="form-title">ส่วนที่ 2 สำหรับเจ้าหน้าที่</p> <p class="form-subtitle">บันทึกการตรวจสอบและแก้ไข</p> <div class="grid grid-cols-2 gap-x-6 mt-2"><div class="field"><span class="field-label">เวลาเริ่มดำเนินการ:</span> <span class="field-value"><?php echo trim($time_part ?? ''); ?></span></div><div class="field"><span class="field-label">เวลาแล้วเสร็จ:</span> <span class="field-value"><?php echo $completed_time_str; ?></span></div></div>
+            <?php if ($issue['category'] !== 'อื่นๆ'): ?>
+            <div class="mt-4"><p class="font-bold">รายการตรวจสอบและแก้ไข:</p><div class="grid grid-cols-2 gap-x-4 text-sm mt-1"><?php foreach($checklist_items_for_category as $item): $is_checked = isset($checklist_data[$item]) && $checklist_data[$item]['checked']; $item_value = isset($checklist_data[$item]) ? $checklist_data[$item]['value'] : '';?><div><span class="checkbox"><?php echo $is_checked ? '☑' : '☐'; ?></span><span><?php echo htmlspecialchars($item); ?></span><?php if ($item === 'อื่นๆ' && $is_checked && !empty($item_value)): ?><span class="ml-2 text-indigo-600">(<?php echo htmlspecialchars($item_value); ?>)</span><?php endif; ?></div><?php endforeach; ?></div></div>
+            <?php endif; ?>
+             <div class="mt-4 space-y-2"><p><span class="checkbox"><?php echo $issue['status'] === 'done' ? '☑' : '☐'; ?></span> ดำเนินการแล้วเสร็จ สามารถใช้งานได้ปกติ</p><div class="field items-start ml-8"><span class="field-label">รายละเอียดการแก้ไขเพิ่มเติม:</span><div class="field-value min-h-[4rem]"><?php echo nl2br(htmlspecialchars($latest_comment ?? '')); ?></div></div><p><span class="checkbox"><?php echo $issue['status'] === 'awaiting_parts' ? '☑' : '☐'; ?></span> ขอให้หน่วยงาน สั่งซื้ออุปกรณ์เพื่อใช้ในการซ่อม</p><p><span class="checkbox"><?php echo $issue['status'] === 'cannot_resolve' ? '☑' : '☐'; ?></span> ไม่สามารถดำเนินการเองได้ / ให้ดำเนินการส่งซ่อม</p></div> <div class="mt-6 flex justify-end"><div class="w-2/5 text-center"><p class="min-h-[1rem]">............................................</p><p class="text-sm mt-1"><?php echo htmlspecialchars($issue['assigned_to_position'] ?? '............................................'); ?></p><p class="mt-1">(<?php echo htmlspecialchars($issue['assigned_to_name'] ?? '............................................'); ?>)</p><p class="text-sm">เจ้าหน้าที่ผู้ดำเนินการ</p></div></div> </div>
              <div class="form-section mt-4"> <p class="form-title">ส่วนที่ 3 สำหรับผู้รับบริการ</p> <p class="form-subtitle">แบบสำรวจความพึงพอใจ</p> <div class="mt-2"><p class="font-bold">ความพึงพอใจในการรับบริการจากเจ้าหน้าที่</p><div class="flex space-x-6 mt-1 text-sm"><span><span class="checkbox"><?php echo ($issue['satisfaction_rating'] == 5) ? '☑' : '☐'; ?></span> ดีมาก</span><span><span class="checkbox"><?php echo ($issue['satisfaction_rating'] == 4) ? '☑' : '☐'; ?></span> ดี</span><span><span class="checkbox"><?php echo ($issue['satisfaction_rating'] == 3) ? '☑' : '☐'; ?></span> พอใช้</span><span><span class="checkbox"><?php echo ($issue['satisfaction_rating'] <= 2 && !is_null($issue['satisfaction_rating'])) ? '☑' : '☐'; ?></span> ควรปรับปรุง</span></div></div> <div class="field items-start mt-2"><span class="field-label">ข้อเสนอแนะ:</span><div class="field-value min-h-[2rem]"></div></div> <div class="flex justify-between mt-10"><div class="w-2/5 text-center"><div class="min-h-[3rem] flex items-center justify-center"><?php if (!empty($issue['signature_image']) && file_exists($issue['signature_image'])): ?><img src="<?php echo htmlspecialchars($issue['signature_image']); ?>" alt="ลายมือชื่อผู้รับบริการ" class="max-h-16"><?php else: ?><p>ลงชื่อ............................................</p><?php endif; ?></div><p class="mt-1">(<?php echo htmlspecialchars($issue['reporter_name']); ?>)</p><p class="text-sm">ผู้รับบริการ</p></div><div class="w-2/5 text-center"><p class="min-h-[1rem]">ลงชื่อ............................................</p><p class="mt-1">(............................................)</p><p class="text-sm">หัวหน้า<?php echo htmlspecialchars($issue['assigned_to_division'] ? 'ฝ่าย' . $issue['assigned_to_division'] : 'ฝ่าย......................'); ?></p></div></div> </div>
         </div>
     <?php endforeach; ?>

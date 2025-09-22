@@ -9,11 +9,183 @@ require_once __DIR__ . '/PHPMailer/Exception.php';
 require_once __DIR__ . '/PHPMailer/PHPMailer.php';
 require_once __DIR__ . '/PHPMailer/SMTP.php';
 
-
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
+// Include config for database and other settings
+if (file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
 require_once 'db.php';
+
+
+//======================================================================
+// NEW PORTFOLIO FUNCTIONS
+//======================================================================
+
+/**
+ * ดึงข้อมูลผลงานทั้งหมดของเจ้าหน้าที่จาก user_id
+ * @param int $user_id
+ * @param mysqli $conn
+ * @return array
+ */
+function getPortfolioByUserId($user_id, $conn) {
+    $portfolio = [];
+    $stmt = $conn->prepare("SELECT * FROM it_portfolio WHERE user_id = ? ORDER BY end_date DESC, start_date DESC");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+        $portfolio[] = $row;
+    }
+    $stmt->close();
+    return $portfolio;
+}
+
+/**
+ * [NEW] ดึงข้อมูลผลงานทั้งหมดของเจ้าหน้าที่ทุกคน (สำหรับ Admin)
+ * @param mysqli $conn
+ * @return array
+ */
+function getAllPortfolios($conn) {
+    $portfolios = [];
+    $sql = "SELECT p.*, u.fullname as author_name, u.image_url as author_avatar 
+            FROM it_portfolio p
+            JOIN users u ON p.user_id = u.id 
+            ORDER BY p.end_date DESC, p.start_date DESC";
+    $result = $conn->query($sql);
+    while($row = $result->fetch_assoc()) {
+        $portfolios[] = $row;
+    }
+    return $portfolios;
+}
+
+
+//======================================================================
+// ARTICLE & NEWS FUNCTIONS
+//======================================================================
+
+/**
+ * Creates a URL-friendly slug from a string.
+ * @param string $text
+ * @return string
+ */
+function createSlug($text) {
+    // Replace non-letter or digits with -
+    $text = preg_replace('~[^\pL\d]+~u', '-', $text);
+    // Transliterate
+    $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
+    // Remove unwanted characters
+    $text = preg_replace('~[^-\w]+~', '', $text);
+    // Trim
+    $text = trim($text, '-');
+    // Remove duplicate -
+    $text = preg_replace('~-+~', '-', $text);
+    // Lowercase
+    $text = strtolower($text);
+    if (empty($text)) {
+        return 'n-a-' . uniqid();
+    }
+    return $text;
+}
+
+/**
+ * ดึงข้อมูลบทความที่เผยแพร่แล้วสำหรับหน้าสาธารณะ (มี Pagination และ Search)
+ * @param mysqli $conn
+ * @param int $page
+ * @param int $perPage
+ * @param string $searchTerm
+ * @return array
+ */
+function getPublishedArticles($conn, $page = 1, $perPage = 6, $searchTerm = '') {
+    $offset = ($page - 1) * $perPage;
+    $articles = [];
+    
+    $count_sql = "SELECT COUNT(a.id) as total FROM articles a WHERE a.status = 'published'";
+    $data_sql = "SELECT a.*, u.fullname as author_name, u.image_url as author_avatar 
+                 FROM articles a 
+                 JOIN users u ON a.author_id = u.id 
+                 WHERE a.status = 'published'";
+    
+    $params = [];
+    $types = "";
+
+    if (!empty($searchTerm)) {
+        $search_query = "%" . $searchTerm . "%";
+        $condition = " AND (a.title LIKE ? OR a.tags LIKE ?)";
+        $count_sql .= $condition;
+        $data_sql .= $condition;
+        $params = [$search_query, $search_query];
+        $types = "ss";
+    }
+
+    // Get total count
+    $stmt_count = $conn->prepare($count_sql);
+    if (!empty($params)) {
+        $stmt_count->bind_param($types, ...$params);
+    }
+    $stmt_count->execute();
+    $total_items = $stmt_count->get_result()->fetch_assoc()['total'];
+    $total_pages = ceil($total_items / $perPage);
+    $stmt_count->close();
+
+    // Get paginated data
+    $data_sql .= " ORDER BY a.published_at DESC LIMIT ? OFFSET ?";
+    $params[] = $perPage;
+    $params[] = $offset;
+    $types .= "ii";
+
+    $stmt_data = $conn->prepare($data_sql);
+    $stmt_data->bind_param($types, ...$params);
+    $stmt_data->execute();
+    $result = $stmt_data->get_result();
+    while ($row = $result->fetch_assoc()) {
+        $articles[] = $row;
+    }
+    $stmt_data->close();
+    
+    return ['articles' => $articles, 'total_pages' => $total_pages];
+}
+
+
+/**
+ * ดึงข้อมูลบทความเดียวจาก slug
+ * @param mysqli $conn
+ * @param string $slug
+ * @return array|null
+ */
+function getArticleBySlug($conn, $slug) {
+    $sql = "SELECT a.*, u.fullname as author_name, u.image_url as author_avatar 
+            FROM articles a 
+            JOIN users u ON a.author_id = u.id 
+            WHERE a.slug = ? AND a.status = 'published'";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $slug);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $article = $result->fetch_assoc();
+    $stmt->close();
+    return $article;
+}
+
+/**
+ * ดึงข้อมูลบทความทั้งหมดสำหรับหน้าจัดการ (Admin)
+ * @param mysqli $conn
+ * @return array
+ */
+function getAllArticles($conn) {
+    $articles = [];
+    $sql = "SELECT a.*, u.fullname as author_name 
+            FROM articles a 
+            JOIN users u ON a.author_id = u.id 
+            ORDER BY a.created_at DESC";
+    $result = $conn->query($sql);
+    while($row = $result->fetch_assoc()) {
+        $articles[] = $row;
+    }
+    return $articles;
+}
+
 
 //======================================================================
 // UTILITY & FORMATTING FUNCTIONS
@@ -48,7 +220,7 @@ function formatDate($dateString) {
 }
 
 /**
- * [NEW] จัดรูปแบบระยะเวลาจากนาทีเป็นสตริงที่อ่านง่าย (วัน ชั่วโมง นาที)
+ * จัดรูปแบบระยะเวลาจากนาทีเป็นสตริงที่อ่านง่าย (วัน ชั่วโมง นาที)
  * @param int|null $total_minutes จำนวนนาทีทั้งหมด
  * @return string
  */
@@ -82,10 +254,7 @@ function generate_pagination_links($total_pages, $current_page, $base_url, $para
     $total_pages = (int)$total_pages;
     $current_page = (int)$current_page;
 
-    if ($total_pages <= 1 && $total_pages > 0) {
-        return '<div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6"><p class="text-sm text-gray-700">แสดงผลทั้งหมด</p></div>';
-    }
-    if($total_pages <= 0){
+    if ($total_pages <= 1) {
         return '';
     }
 
@@ -272,7 +441,7 @@ function getIssueFiles($issue_id, $conn) {
  */
 function getIssueComments($issue_id, $conn) {
     $comments = [];
-    $sql = "SELECT c.id, c.comment_text, c.attachment_link, c.created_at, u.fullname, u.image_url FROM comments c JOIN users u ON c.user_id = u.id WHERE c.issue_id = ? ORDER BY c.created_at DESC";
+    $sql = "SELECT c.id, c.comment_text, c.attachment_link, c.created_at, u.id as user_id, u.fullname, u.image_url FROM comments c JOIN users u ON c.user_id = u.id WHERE c.issue_id = ? ORDER BY c.created_at DESC";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $issue_id);
     $stmt->execute();
@@ -426,17 +595,23 @@ function get_checklist_by_category($category) {
  * @return bool
  */
 function send_email($to, $subject, $body) {
+    // Check if SMTP settings are defined in config.php
+    if (!defined('SMTP_HOST') || !defined('SMTP_USER') || !defined('SMTP_PASS')) {
+        error_log("SMTP settings are not configured in config.php. Email not sent.");
+        return false;
+    }
+
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
-        $mail->Host       = 'smtp.gmail.com';
+        $mail->Host       = SMTP_HOST;
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'your.email@gmail.com';
-        $mail->Password   = 'your_app_password';
+        $mail->Username   = SMTP_USER;
+        $mail->Password   = SMTP_PASS;
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        $mail->Port       = 465;
+        $mail->Port       = SMTP_PORT;
         $mail->CharSet    = 'UTF-8';
-        $mail->setFrom('your.email@gmail.com', 'IT Helpdesk อบจ.ศรีสะเกษ');
+        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($to);
         $mail->isHTML(true);
         $mail->Subject = $subject;
@@ -450,3 +625,4 @@ function send_email($to, $subject, $body) {
     }
 }
 ?>
+
