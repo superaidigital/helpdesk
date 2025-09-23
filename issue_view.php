@@ -62,13 +62,13 @@ if ($issue['status'] === 'done' && is_null($issue['signature_image'])) {
 $issue_files = getIssueFiles($issue_id, $conn);
 $comments = getIssueComments($issue_id, $conn);
 $other_it_staff_result = $conn->query("SELECT id, fullname FROM users WHERE role = 'it' AND id != " . (int)($issue['assigned_to'] ?? 0));
-
-// Fetch checklist data
 $checklist_items_db = getIssueChecklistItems($issue_id, $conn);
-
-// Get the correct checklist based on the issue's category
 $default_checklist = get_checklist_by_category($issue['category']);
 $json_checklist_items_db = json_encode($checklist_items_db);
+
+// --- [AI FEATURE] Fetch Knowledge Base for AI context ---
+$kb_result = $conn->query("SELECT question, answer FROM knowledge_base");
+$knowledge_base_for_ai = $kb_result->fetch_all(MYSQLI_ASSOC);
 
 
 // --- Display Maps ---
@@ -129,6 +129,24 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
             </div>
             <?php endif; ?>
         </div>
+        
+        <!-- [AI FEATURE] AI Helper Card -->
+        <?php if ($can_perform_actions): ?>
+        <div class="bg-white p-6 rounded-lg shadow-md" x-data="aiHelper()">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-semibold text-gray-800 text-lg">
+                    <i class="fa-solid fa-robot text-indigo-500 mr-2"></i>ผู้ช่วย AI
+                </h3>
+                <button @click="getAiSuggestion()" :disabled="isLoading" class="px-4 py-2 bg-indigo-500 text-white text-sm font-semibold rounded-md hover:bg-indigo-600 disabled:bg-gray-400">
+                    <span x-show="!isLoading"><i class="fa-solid fa-lightbulb mr-2"></i>แนะนำแนวทางแก้ไข</span>
+                    <span x-show="isLoading" style="display: none;"><i class="fa-solid fa-spinner fa-spin mr-2"></i>กำลังวิเคราะห์...</span>
+                </button>
+            </div>
+            <div x-show="showSuggestion" x-transition class="mt-4 pt-4 border-t border-gray-200">
+                <div x-html="aiSuggestion" class="prose prose-sm max-w-none"></div>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- IT Action Card: Show if user is IT or Admin -->
         <?php if ($can_perform_actions): ?>
@@ -156,7 +174,7 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
                         <label class="text-sm font-medium">ส่งต่องานให้</label>
                         <div class="flex items-center space-x-2 mt-1">
                             <select name="forward_to_user_id" class="flex-grow rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                                <?php while($it_user = $other_it_staff_result->fetch_assoc()): ?>
+                                <?php mysqli_data_seek($other_it_staff_result, 0); while($it_user = $other_it_staff_result->fetch_assoc()): ?>
                                 <option value="<?php echo $it_user['id']; ?>"><?php echo htmlspecialchars($it_user['fullname']); ?></option>
                                 <?php endwhile; ?>
                             </select>
@@ -560,5 +578,88 @@ $reporter_division = $issue['user_id'] ? ($issue['reporter_user_division'] ?? ''
             observer.observe(modal, { attributes: true });
         }
     });
+
+    // --- [AI FEATURE] Alpine.js component for AI Helper ---
+    function aiHelper() {
+        return {
+            isLoading: false,
+            showSuggestion: false,
+            aiSuggestion: '',
+            getAiSuggestion() {
+                this.isLoading = true;
+                this.showSuggestion = false;
+                this.aiSuggestion = '';
+
+                const issueTitle = <?php echo json_encode($issue['title']); ?>;
+                const issueDescription = <?php echo json_encode($issue['description']); ?>;
+                const knowledgeBase = <?php echo json_encode($knowledge_base_for_ai); ?>;
+
+                let context = "ข้อมูลจาก Knowledge Base ที่อาจเกี่ยวข้อง:\n";
+                if (knowledgeBase.length > 0) {
+                    knowledgeBase.forEach(item => {
+                        context += `- หัวข้อ: ${item.question}\n  วิธีแก้: ${item.answer}\n`;
+                    });
+                } else {
+                    context = "ไม่มีข้อมูลใน Knowledge Base";
+                }
+
+                const systemPrompt = "คุณคือผู้เชี่ยวชาญด้าน IT Support หน้าที่ของคุณคือวิเคราะห์ปัญหาจาก Ticket และข้อมูลจาก Knowledge Base เพื่อแนะนำแนวทางการแก้ไขปัญหาที่เป็นไปได้ให้กับเจ้าหน้าที่ IT โดยตอบเป็นภาษาไทย สรุปสั้นๆ และเป็นข้อๆ ในรูปแบบ Markdown ที่มีหัวข้อและรายการ";
+                const userQuery = `
+                    วิเคราะห์ปัญหาจาก Ticket ต่อไปนี้และแนะนำวิธีแก้:
+                    
+                    **หัวข้อ Ticket:** ${issueTitle}
+                    **รายละเอียดปัญหา:** ${issueDescription}
+                    
+                    ---
+                    
+                    ${context}
+                `;
+                
+                const apiKey = "AIzaSyB9mrBQ1AY4lg6UbgmeUczuYrCnY7FBI80"; // API Key will be injected by the environment
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    },
+                };
+
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        // A simple conversion from Markdown-like text to HTML
+                        let htmlResult = candidate.content.parts[0].text;
+                        htmlResult = htmlResult.replace(/ \*\*(.*?)\*\*/g, ' <strong>$1</strong>'); // Bold
+                        htmlResult = htmlResult.replace(/ \*(.*?)\*/g, ' <li>$1</li>'); // List items
+                        htmlResult = htmlResult.replace(/\n/g, '<br>'); // Newlines
+                        this.aiSuggestion = htmlResult;
+                    } else {
+                        this.aiSuggestion = '<p class="text-red-500">ขออภัย, ไม่สามารถสร้างคำแนะนำได้ในขณะนี้</p>';
+                    }
+                    this.showSuggestion = true;
+                })
+                .catch(error => {
+                    console.error("Error calling Gemini API:", error);
+                    this.aiSuggestion = `<p class="text-red-500">เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI: ${error.message}</p>`;
+                    this.showSuggestion = true;
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
+            }
+        }
+    }
 </script>
 

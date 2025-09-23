@@ -4,7 +4,32 @@ require_once 'includes/functions.php';
 check_auth(['it', 'admin']);
 require_once 'includes/header.php';
 
-$articles = getAllArticles($conn); // Get all articles regardless of status
+// --- Pagination Logic ---
+$items_per_page = 10;
+$current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($current_page < 1) $current_page = 1;
+$offset = ($current_page - 1) * $items_per_page;
+
+// --- Fetch total articles for pagination ---
+$total_count_sql = "SELECT COUNT(id) as total FROM articles";
+$total_items_result = $conn->query($total_count_sql);
+$total_items = $total_items_result->fetch_assoc()['total'];
+$total_pages = ceil($total_items / $items_per_page);
+
+// --- Fetch paginated articles ---
+$stmt = $conn->prepare("
+    SELECT a.*, u.fullname as author_name 
+    FROM articles a 
+    JOIN users u ON a.author_id = u.id 
+    ORDER BY a.created_at DESC 
+    LIMIT ? OFFSET ?
+");
+$stmt->bind_param("ii", $items_per_page, $offset);
+$stmt->execute();
+$result = $stmt->get_result();
+$articles = $result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
 ?>
 
 <div x-data="{ isDeleteModalOpen: false, articleToDeleteId: null, articleToDeleteTitle: '' }">
@@ -63,9 +88,12 @@ $articles = getAllArticles($conn); // Get all articles regardless of status
                 </tbody>
             </table>
         </div>
+        
+        <!-- Pagination Links -->
+        <?php echo generate_pagination_links($total_pages, $current_page, 'admin_articles.php'); ?>
     </div>
 
-    <!-- Delete Modal -->
+    <!-- Delete Modal (เหมือนเดิม) -->
     <div x-show="isDeleteModalOpen" @keydown.escape.window="isDeleteModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" x-cloak>
         <div class="bg-white rounded-lg shadow-2xl max-w-sm w-full" @click.away="isDeleteModalOpen = false">
             <div class="p-6 text-center">

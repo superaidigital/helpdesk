@@ -143,8 +143,14 @@ $status_color_map = [
                                 <?php echo getUserNameById($issue['assigned_to'], $conn); ?>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <?php if ($issue['status'] === 'pending' && is_null($issue['assigned_to']) && $_SESSION['role'] === 'it'): ?>
-                                    <a href="issue_action.php?action=accept&id=<?php echo $issue['id']; ?>" class="text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded-md text-xs font-semibold">รับงาน</a>
+                                <?php if ($issue['status'] === 'pending' && is_null($issue['assigned_to']) && in_array($_SESSION['role'], ['it', 'admin'])): ?>
+                                    <!-- เปลี่ยนจากลิงก์เป็น Form สำหรับ POST Request -->
+                                    <form action="issue_action.php" method="POST" class="inline-block">
+                                        <?php echo generate_csrf_token(); ?>
+                                        <input type="hidden" name="action" value="accept">
+                                        <input type="hidden" name="issue_id" value="<?php echo $issue['id']; ?>">
+                                        <button type="submit" class="text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded-md text-xs font-semibold">รับงาน</button>
+                                    </form>
                                 <?php else: ?>
                                     <a href="issue_view.php?id=<?php echo $issue['id']; ?>" class="text-indigo-600 hover:text-indigo-900 font-semibold"><i class="fa-solid fa-magnifying-glass mr-1"></i>ดูรายละเอียด</a>
                                 <?php endif; ?>

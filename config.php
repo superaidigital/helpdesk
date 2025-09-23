@@ -1,21 +1,29 @@
 <?php
 // config.php
-// ไฟล์สำหรับเก็บข้อมูลการตั้งค่าที่สำคัญของระบบ
-// **สำคัญ: ห้ามอัปโหลดไฟล์นี้ขึ้นบน Git Repository ที่เป็นสาธารณะ**
+// **สำคัญ: ไฟล์นี้เป็นเพียงตัวอย่าง ไม่ควรเก็บข้อมูลจริงในนี้**
+// แนะนำให้ใช้ Environment Variables (.env) ในการเก็บข้อมูลเหล่านี้
 
-// -- 1. Database Configuration --
+// --- 1. Database Configuration ---
+// ค่าเหล่านี้ควรอ่านมาจาก Environment Variables
+// define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
+// define('DB_USERNAME', $_ENV['DB_USERNAME'] ?? 'root');
+// define('DB_PASSWORD', $_ENV['DB_PASSWORD'] ?? '');
+// define('DB_NAME', $_ENV['DB_NAME'] ?? 'helpdesk_db');
+
+// --- สำหรับการทดสอบ (Fallback) ---
 define('DB_HOST', 'localhost');
-define('DB_USERNAME', 'root'); // <-- เปลี่ยนเป็น username ของคุณ
-define('DB_PASSWORD', '');     // <-- เปลี่ยนเป็น password ของคุณ
+define('DB_USERNAME', 'root');
+define('DB_PASSWORD', '');
 define('DB_NAME', 'helpdesk_db');
 
-// -- 2. SMTP Email Configuration --
-// ตั้งค่าสำหรับส่งอีเมลแจ้งเตือนผ่าน Gmail
+
+// --- 2. SMTP Email Configuration ---
+// แนะนำให้อ่านค่าเหล่านี้จาก Environment Variables เช่นกัน
 define('SMTP_HOST', 'smtp.gmail.com');
-define('SMTP_USER', 'your.email@gmail.com'); // <-- ใส่อีเมล Gmail ของคุณ
-define('SMTP_PASS', 'your_app_password');     // <-- ใส่ App Password ที่สร้างจาก Google Account
+define('SMTP_USER', 'your.email@gmail.com');
+define('SMTP_PASS', 'your_app_password');
 define('SMTP_PORT', 465);
-define('SMTP_FROM_EMAIL', 'your.email@gmail.com'); // อีเมลผู้ส่ง
-define('SMTP_FROM_NAME', 'IT Helpdesk อบจ.ศรีสะเกษ'); // ชื่อผู้ส่ง
+define('SMTP_FROM_EMAIL', 'your.email@gmail.com');
+define('SMTP_FROM_NAME', 'IT Helpdesk อบจ.ศรีสะเกษ');
 
 ?>

@@ -1,46 +1,60 @@
 <?php
-require_once 'includes/functions.php';
-check_auth(['admin']);
+// admin_user_form.php
+// หน้าสำหรับเพิ่มและแก้ไขข้อมูลผู้ใช้งานในระบบ
 
-$user_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-$is_editing = $user_id > 0;
+// 1. เรียกใช้งานไฟล์ที่จำเป็นและตรวจสอบสิทธิ์
+require_once 'includes/functions.php';
+check_auth(['admin']); // อนุญาตเฉพาะ admin เท่านั้น
+
+// 2. ตรวจสอบและรับค่า user_id จาก URL อย่างปลอดภัย
+$user_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
+$is_editing = ($user_id > 0); // ตรวจสอบว่าเป็นโหมดแก้ไขหรือไม่
+
+// 3. เตรียมข้อมูลเริ่มต้นสำหรับฟอร์ม (กรณีเพิ่มผู้ใช้ใหม่)
 $user_data = [
     'fullname' => '',
+    'email' => '',
     'position' => '',
     'department' => '',
-    'division' => '', // Add default value for new field
+    'division' => '',
     'phone' => '',
     'line_id' => '',
-    'email' => '',
     'role' => 'user',
     'image_url' => ''
 ];
 
+// 4. หากเป็นโหมดแก้ไข ให้ดึงข้อมูลผู้ใช้จากฐานข้อมูล
 if ($is_editing) {
-    $user_data = getUserById($user_id, $conn);
+    // ใช้ฟังก์ชัน getUserById ที่แก้ไขแล้ว
+    $user_data = getUserById($user_id, $conn); 
+    // หากไม่พบข้อมูล ให้ redirect กลับพร้อมแจ้งเตือน
     if (!$user_data) {
-        redirect_with_message('admin_users.php', 'error', 'ไม่พบผู้ใช้งาน');
+        redirect_with_message('admin_users.php', 'error', 'ไม่พบข้อมูลผู้ใช้งานที่ระบุ');
     }
 }
 
+// 5. ตั้งชื่อหน้าเว็บแบบไดนามิก และเรียกใช้งาน Header
 $page_title = $is_editing ? "แก้ไขข้อมูลผู้ใช้: " . htmlspecialchars($user_data['fullname']) : "เพิ่มผู้ใช้งานใหม่";
 require_once 'includes/header.php';
 ?>
-<!-- Cropper.js CSS -->
+
+<!-- 6. เรียกใช้งาน CSS และ Style ที่จำเป็นสำหรับ Cropper.js -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
 <style>
     .img-container { max-height: 50vh; }
     #image-to-crop { max-width: 100%; }
 </style>
 
+<!-- 7. โครงสร้างฟอร์มหลัก -->
 <div class="max-w-2xl mx-auto">
-    <form action="admin_user_action.php" method="POST" enctype="multipart/form-data" class="bg-white p-8 rounded-xl shadow-md space-y-6">
+    <form action="admin_user_action.php" method="POST" class="bg-white p-8 rounded-xl shadow-md space-y-6">
+        <!-- Hidden Inputs สำหรับส่งข้อมูลสำคัญ -->
         <?php echo generate_csrf_token(); ?>
         <input type="hidden" name="user_id" value="<?php echo $user_id; ?>">
         <input type="hidden" name="action" value="<?php echo $is_editing ? 'edit_user' : 'add_user'; ?>">
         <input type="hidden" name="cropped_image_data" id="cropped_image_data">
 
-        <!-- Profile Image Upload -->
+        <!-- ส่วนอัปโหลดรูปภาพโปรไฟล์ -->
         <div>
             <label class="block text-sm font-medium text-gray-700">รูปภาพโปรไฟล์</label>
             <div class="mt-1 flex items-center space-x-4">
@@ -52,6 +66,7 @@ require_once 'includes/header.php';
             </div>
         </div>
 
+        <!-- ส่วนกรอกข้อมูลผู้ใช้ -->
         <div class="border-t pt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
                 <label for="fullname" class="block text-sm font-medium text-gray-700">ชื่อ-สกุล</label>
@@ -83,6 +98,7 @@ require_once 'includes/header.php';
             </div>
         </div>
 
+        <!-- ส่วนกำหนดสิทธิ์และรหัสผ่าน -->
         <div>
             <label for="role" class="block text-sm font-medium text-gray-700">สิทธิ์การใช้งาน</label>
             <select name="role" id="role" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
@@ -100,6 +116,7 @@ require_once 'includes/header.php';
             <?php endif; ?>
         </div>
 
+        <!-- ปุ่มควบคุมฟอร์ม -->
         <div class="flex justify-end space-x-3 pt-4 border-t">
             <a href="admin_users.php" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">ยกเลิก</a>
             <button type="submit" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">
@@ -109,7 +126,7 @@ require_once 'includes/header.php';
     </form>
 </div>
 
-<!-- Cropper Modal -->
+<!-- 8. Modal สำหรับ Cropper.js -->
 <div id="cropper-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75" style="display: none;">
     <div class="bg-white rounded-lg shadow-2xl max-w-lg w-full">
         <div class="p-4 border-b"><h3 class="font-semibold text-lg">ปรับขนาดและตัดรูปภาพ</h3></div>
@@ -121,7 +138,7 @@ require_once 'includes/header.php';
     </div>
 </div>
 
-<!-- Cropper.js Script -->
+<!-- 9. Script สำหรับ Cropper.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -178,6 +195,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <?php 
+// 10. ปิดการเชื่อมต่อฐานข้อมูลและเรียกใช้งาน Footer
 $conn->close();
 require_once 'includes/footer.php'; 
 ?>

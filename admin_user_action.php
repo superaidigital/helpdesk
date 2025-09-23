@@ -3,37 +3,7 @@
 require_once 'includes/functions.php';
 check_auth(['admin']);
 
-/**
- * ฟังก์ชันสำหรับแปลง Base64 string เป็นไฟล์รูปภาพและบันทึก
- * @param string $base64_string ข้อมูลรูปภาพในรูปแบบ Base64
- * @param string $output_folder โฟลเดอร์ที่ต้องการบันทึก
- * @return string|null مسیرไฟล์ที่บันทึกสำเร็จ หรือ null หากล้มเหลว
- */
-function save_base64_image($base64_string, $output_folder) {
-    if (empty($base64_string) || !preg_match('/^data:image\/(\w+);base64,/', $base64_string, $type)) {
-        return null;
-    }
-    
-    $data = substr($base64_string, strpos($base64_string, ',') + 1);
-    $type = strtolower($type[1]); // e.g., 'png'
-    $data = base64_decode($data);
-
-    if ($data === false) {
-        return null;
-    }
-
-    if (!is_dir($output_folder)) {
-        mkdir($output_folder, 0777, true);
-    }
-    
-    $file_name = 'avatar_' . uniqid() . '.' . $type;
-    $file_path = $output_folder . $file_name;
-
-    if (file_put_contents($file_path, $data)) {
-        return $file_path;
-    }
-    return null;
-}
+// ไม่ต้องประกาศฟังก์ชัน save_base64_image() ที่นี่แล้ว เพราะมีอยู่ใน functions.php
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     validate_csrf_token();
@@ -159,4 +129,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 header("Location: admin_users.php");
 exit();
 ?>
-
