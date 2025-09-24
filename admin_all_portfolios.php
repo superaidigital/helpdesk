@@ -1,5 +1,5 @@
 <?php
-$page_title = "ผลงานทั้งหมด";
+// $page_title = "ผลงานทั้งหมด";
 require_once 'includes/functions.php';
 check_auth(['admin']); // เฉพาะ Admin เท่านั้นที่เข้าถึงได้
 require_once 'includes/header.php';

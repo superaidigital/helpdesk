@@ -26,6 +26,7 @@ $admin_menu = [
     'admin_all_portfolios.php' => ['icon' => 'fa-folder-open', 'title' => 'ผลงานทั้งหมด'],
     'admin_users.php' => ['icon' => 'fa-users', 'title' => 'จัดการผู้ใช้'],
     'admin_reports.php' => ['icon' => 'fa-chart-line', 'title' => 'รายงาน'],
+    'admin_ai_analytics.php' => ['icon' => 'fa-robot', 'title' => 'รายงานวิเคราะห์โดย AI'], // <-- ADD THIS LINE
     'admin_system.php' => ['icon' => 'fa-cogs', 'title' => 'จัดการระบบ']
 ];
 $it_menu = [
@@ -71,7 +72,6 @@ if ($role === 'admin') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo isset($page_title) ? htmlspecialchars($page_title) . ' - ระบบแจ้งปัญหาฯ' : 'ระบบแจ้งปัญหาและให้คำปรึกษา - อบจ.ศรีสะเกษ'; ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- ADDED: Tailwind dark mode configuration SCRIPT MOVED HERE -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -84,7 +84,6 @@ if ($role === 'admin') {
 </head>
 <body class="h-full font-sans bg-slate-50 dark:bg-slate-900">
     <div @keydown.escape.window="sidebarOpen = false" class="flex h-full">
-        <!-- Off-canvas menu for mobile -->
         <div x-show="sidebarOpen" class="fixed inset-0 flex z-40 md:hidden" x-ref="dialog" aria-modal="true">
             <div x-show="sidebarOpen" 
                  x-transition:enter="transition-opacity ease-linear duration-300" 
@@ -109,8 +108,7 @@ if ($role === 'admin') {
                         <i class="fa-solid fa-xmark text-white"></i>
                     </button>
                 </div>
-                <!-- Sidebar content for mobile (no collapse button) -->
-                 <div class="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+                <div class="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
                     <div class="flex items-center flex-shrink-0 px-4">
                         <i class="fa-solid fa-headset text-3xl text-white"></i>
                         <span class="ml-3 font-bold text-xl text-white">IT HELP DESK</span>
@@ -124,7 +122,9 @@ if ($role === 'admin') {
                         foreach ($menu_items as $url => $item) {
                             $isActive = ($current_page === $url) || ($url === 'news.php' && $current_page === 'article_view.php');
                             $class = $isActive ? $activeLinkClass : $inactiveLinkClass;
-                            echo "<a href='$url' class='$baseLinkClass $class'><i class='fa-solid " . $item['icon'] . " mr-3 flex-shrink-0 h-6 w-6 text-indigo-300'></i>" . $item['title'] . "</a>";
+                            // --- MODIFIED LINE ---
+                            echo "<a href='$url' class='$baseLinkClass $class'><i class='fa-solid " . $item['icon'] . " mr-3 flex-shrink-0 h-6 w-6 text-lg text-indigo-300 flex items-center justify-center'></i>" . $item['title'] . "</a>";
+                            // --- END MODIFIED LINE ---
                         }
                         ?>
                     </nav>
@@ -141,7 +141,6 @@ if ($role === 'admin') {
             <div class="flex-shrink-0 w-14"></div>
         </div>
 
-        <!-- Static sidebar for desktop -->
         <div class="hidden md:flex md:flex-shrink-0">
             <div class="relative flex flex-col sidebar" :class="isSidebarCollapsed ? 'w-20' : 'w-64'">
                 <div class="flex flex-col h-0 flex-1 bg-indigo-700">
@@ -150,9 +149,7 @@ if ($role === 'admin') {
             </div>
         </div>
 
-        <!-- Main content -->
         <div class="flex flex-col w-0 flex-1 overflow-hidden">
-            <!-- Top bar -->
             <div class="relative z-10 flex-shrink-0 flex h-16 bg-white dark:bg-slate-800 shadow">
                 <button type="button" class="px-4 border-r border-gray-200 dark:border-slate-700 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 md:hidden" @click="sidebarOpen = true">
                     <span class="sr-only">Open sidebar</span>
@@ -186,5 +183,3 @@ if ($role === 'admin') {
                     <?php endif; ?>
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-4">
                         <?php display_flash_message(); ?>
-                        <!-- CONTENT START -->
-

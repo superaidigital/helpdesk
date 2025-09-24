@@ -2,7 +2,6 @@
 // includes/sidebar_content.php
 // This file contains the shared sidebar HTML structure for desktop view.
 ?>
-<!-- Collapse/Expand button positioned relative to the parent container in header.php -->
 <button @click="isSidebarCollapsed = !isSidebarCollapsed" class="hidden md:block absolute top-5 right-0 transform translate-x-1/2 p-2 bg-indigo-800 text-indigo-200 hover:text-white rounded-full focus:outline-none z-20" title="ย่อ/ขยายเมนู">
     <i class="fa-solid transition-transform" :class="isSidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
 </button>
@@ -24,7 +23,9 @@
             $class = $isActive ? $activeLinkClass : $inactiveLinkClass;
 
             echo "<a href='$url' class='$baseLinkClass $class' :class='isSidebarCollapsed ? \"justify-center\" : \"\"' title='" . htmlspecialchars($item['title']) . "'>";
-            echo "<i class='fa-solid " . $item['icon'] . " flex-shrink-0 h-6 w-6 text-indigo-300' :class='isSidebarCollapsed ? \"\" : \"mr-3\"'></i>";
+            // --- MODIFIED LINE ---
+            echo "<i class='fa-solid " . $item['icon'] . " flex-shrink-0 h-6 w-6 text-lg text-indigo-300 flex items-center justify-center' :class='isSidebarCollapsed ? \"\" : \"mr-3\"'></i>";
+            // --- END MODIFIED LINE ---
             echo "<span class='sidebar-text' x-show='!isSidebarCollapsed'>" . $item['title'] . "</span>";
 
             if ($url === 'admin_users.php' && $role === 'admin') {
@@ -52,4 +53,3 @@
         </div>
     </a>
 </div>
-

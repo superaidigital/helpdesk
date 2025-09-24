@@ -243,7 +243,7 @@ function formatDuration($total_minutes) {
 
 
 /**
- * สร้างลิงก์สำหรับระบบแบ่งหน้า (Pagination)
+ * สร้างลิงก์สำหรับระบบแบ่งหน้า (Pagination) ฉบับแก้ไขสมบูรณ์
  * @param int $total_pages จำนวนหน้าทั้งหมด
  * @param int $current_page หน้าปัจจุบัน
  * @param string $base_url URL หลักของหน้า
@@ -258,26 +258,74 @@ function generate_pagination_links($total_pages, $current_page, $base_url, $para
         return '';
     }
 
+    // สร้าง URL พื้นฐานพร้อมพารามิเตอร์ที่มีอยู่
     $query_string = http_build_query($params);
-    $base_url = $base_url . '?' . $query_string;
+    $url_prefix = rtrim($base_url, '?') . '?' . ($query_string ? $query_string . '&' : '');
 
+    // --- เริ่มสร้าง HTML ---
     $html = '<nav class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6" aria-label="Pagination">';
-    $html .= '<div class="hidden sm:block"><p class="text-sm text-gray-700">หน้า <span class="font-medium">' . $current_page . '</span> จาก <span class="font-medium">' . $total_pages . '</span></p></div>';
-    $html .= '<div class="flex-1 flex justify-between sm:justify-end">';
-    
+
+    // --- ส่วนแสดงผลบนมือถือ (ซ่อนบนจอใหญ่) ---
+    $html .= '<div class="flex-1 flex justify-between sm:hidden">';
     if ($current_page > 1) {
-        $html .= '<a href="' . $base_url . '&page=' . ($current_page - 1) . '" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">ก่อนหน้า</a>';
+        $html .= '<a href="' . $url_prefix . 'page=' . ($current_page - 1) . '" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"> ก่อนหน้า </a>';
     } else {
-        $html .= '<span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">ก่อนหน้า</span>';
+        $html .= '<span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed"> ก่อนหน้า </span>';
     }
-    
     if ($current_page < $total_pages) {
-        $html .= '<a href="' . $base_url . '&page=' . ($current_page + 1) . '" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">ถัดไป</a>';
+        $html .= '<a href="' . $url_prefix . 'page=' . ($current_page + 1) . '" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"> ถัดไป </a>';
     } else {
-        $html .= '<span class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">ถัดไป</span>';
+        $html .= '<span class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed"> ถัดไป </span>';
     }
-    
-    $html .= '</div></nav>';
+    $html .= '</div>';
+
+    // --- ส่วนแสดงผลบนเดสก์ท็อป (ซ่อนบนจอมือถือ) ---
+    $html .= '<div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">';
+    $html .= '<div><p class="text-sm text-gray-700">หน้า <span class="font-medium">' . $current_page . '</span> จาก <span class="font-medium">' . $total_pages . '</span></p></div>';
+    $html .= '<div><nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">';
+
+    // ปุ่ม "ก่อนหน้า" (เดสก์ท็อป)
+    $prev_disabled_class = $current_page <= 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50';
+    $html .= '<a href="' . ($current_page > 1 ? $url_prefix . 'page=' . ($current_page - 1) : '#') . '" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 ' . $prev_disabled_class . '"><span class="sr-only">Previous</span><i class="fa-solid fa-chevron-left h-5 w-5"></i></a>';
+
+    // --- ตรรกะการแสดงหมายเลขหน้า ---
+    $window = 1; // จำนวนลิงก์ที่จะแสดงรอบๆ หน้าปัจจุบัน
+    $pages_to_show = [];
+    $pages_to_show[] = 1;
+
+    if ($current_page > $window + 2) {
+        $pages_to_show[] = '...';
+    }
+
+    for ($i = max(2, $current_page - $window); $i <= min($total_pages - 1, $current_page + $window); $i++) {
+        $pages_to_show[] = $i;
+    }
+
+    if ($current_page < $total_pages - ($window + 1)) {
+        $pages_to_show[] = '...';
+    }
+
+    if ($total_pages > 1) {
+        $pages_to_show[] = $total_pages;
+    }
+
+    $pages_to_show = array_unique($pages_to_show);
+
+    foreach ($pages_to_show as $page) {
+        if ($page === '...') {
+            $html .= '<span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>';
+        } else {
+            $active_class = $page == $current_page ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50';
+            $html .= '<a href="' . $url_prefix . 'page=' . $page . '" aria-current="page" class="relative inline-flex items-center px-4 py-2 border text-sm font-medium ' . $active_class . '">' . $page . '</a>';
+        }
+    }
+
+    // ปุ่ม "ถัดไป" (เดสก์ท็อป)
+    $next_disabled_class = $current_page >= $total_pages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50';
+    $html .= '<a href="' . ($current_page < $total_pages ? $url_prefix . 'page=' . ($current_page + 1) : '#') . '" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 ' . $next_disabled_class . '"><span class="sr-only">Next</span><i class="fa-solid fa-chevron-right h-5 w-5"></i></a>';
+
+    $html .= '</nav></div></div></nav>';
+
     return $html;
 }
 

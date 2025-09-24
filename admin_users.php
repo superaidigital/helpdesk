@@ -22,9 +22,9 @@ $types = "";
 // SECURITY: Add search condition with placeholders to prevent SQL Injection
 if (!empty($search_term)) {
     $search_query = "%" . $search_term . "%";
-    $sql_conditions = " WHERE (fullname LIKE ? OR email LIKE ? OR position LIKE ? OR department LIKE ? OR division LIKE ?)";
-    $params = [$search_query, $search_query, $search_query, $search_query, $search_query];
-    $types = "sssss";
+    $sql_conditions = " WHERE (fullname LIKE ? OR email LIKE ? OR position LIKE ? OR department LIKE ?)";
+    $params = [$search_query, $search_query, $search_query, $search_query];
+    $types = "ssss";
 }
 
 // Get total count for pagination
@@ -40,7 +40,6 @@ $stmt_count->close();
 
 // Get paginated results
 $sql = "SELECT * FROM users" . $sql_conditions . " ORDER BY role, fullname LIMIT ? OFFSET ?";
-// Re-add limit and offset params for the main query
 $params[] = $items_per_page;
 $params[] = $offset;
 $types .= "ii";
@@ -76,7 +75,7 @@ $busiest_ids = getBusiestITStaffIds($conn);
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">ผู้ใช้งาน</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">ตำแหน่ง/สังกัด</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">ตำแหน่ง</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">ติดต่อ</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">สิทธิ์</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">จัดการ</th>
@@ -105,7 +104,6 @@ $busiest_ids = getBusiestITStaffIds($conn);
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900"><?php echo htmlspecialchars($user['position']); ?></div>
                                 <div class="text-sm text-gray-500"><?php echo htmlspecialchars($user['department']); ?></div>
-                                <div class="text-sm text-gray-400">ฝ่าย: <?php echo htmlspecialchars($user['division'] ?? '-'); ?></div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <div><i class="fa-solid fa-phone w-4 text-gray-400"></i> <?php echo htmlspecialchars($user['phone']); ?></div>
@@ -164,3 +162,4 @@ $stmt->close();
 $conn->close();
 require_once 'includes/footer.php'; 
 ?>
+
